@@ -1,0 +1,7 @@
+# Hidden
+.*
+!/.gitignore
+
+# Build dirs
+**/EWARM/CH9141
+**/EWARM/settings
