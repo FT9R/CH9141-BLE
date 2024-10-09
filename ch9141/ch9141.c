@@ -26,7 +26,7 @@
 static void CH9141_Sleep(ch9141_t *handle, ch9141_FuncState_t newState);
 static ch9141_ErrorStatus_t CH9141_HelloGet(ch9141_t *handle, char *helloGet, char const *helloCmp);
 static ch9141_ErrorStatus_t CH9141_HelloSet(ch9141_t *handle, char const *helloSet);
-static ch9141_ErrorStatus_t CH9141_CMD_Send(ch9141_t *handle, char const *CMD);
+static ch9141_ErrorStatus_t CH9141_CMD_Send(ch9141_t *handle, char const *cmd);
 
 ch9141_ErrorStatus_t CH9141_Link(ch9141_t *handle, ch9141_Receive_fp fpReceive, ch9141_Transmit_fp fpTransmit,
                                  ch9141_Pin_Sleep_fp fpPinSleep, ch9141_Pin_Mode_fp fpPinMode, ch9141_Delay_fp fpDelay)
@@ -47,14 +47,14 @@ ch9141_ErrorStatus_t CH9141_Link(ch9141_t *handle, ch9141_Receive_fp fpReceive, 
 
 ch9141_ErrorStatus_t CH9141_Init(ch9141_t *handle, char const *helloSet)
 {
+    char helloGet[30];
+
     if (handle == NULL)
         return CH9141_STAT_ERROR;
 
-    char helloGet[30];
-
-    WAIT(1000);
+    /* Exit from sleep mode */
     CH9141_Sleep(handle, CH9141_FUNC_DISABLE);
-    MODE_AT;
+    WAIT(100);
 
     /* Get any hello message after startup */
     if (handle->interface.receive(handle->rxBuf, sizeof(handle->rxBuf), &handle->rxLen, CH9141_RX_TIMEOUT) !=
@@ -69,40 +69,58 @@ ch9141_ErrorStatus_t CH9141_Init(ch9141_t *handle, char const *helloSet)
         /* Read hello message back and compare it with reference */
         CH9141_HelloGet(handle, helloGet, helloSet);
     }
-
-    // MODE_TRANSPARENT;
+    WAIT(100);
 
     return CH9141_STAT_SUCCESS;
-}
-
-ch9141_ErrorStatus_t CH9141_PasswordSet(ch9141_t *handle, ch9141_FuncState_t newState)
-{
-    if (handle == NULL)
-        return CH9141_STAT_ERROR;
-
-    /* Set new password */
-    CH9141_CMD_Send(handle, "AT+PAS\r\n");
-
-    switch (newState)
-    {
-    case CH9141_FUNC_DISABLE:
-        /* code */
-        break;
-
-    case CH9141_FUNC_ENABLE:
-        /* code */
-        break;
-
-    default:
-        return CH9141_STAT_ERROR;
-        break;
-    }
 }
 
 ch9141_ErrorStatus_t CH9141_PasswordGet(ch9141_t *handle)
 {
     if (handle == NULL)
         return CH9141_STAT_ERROR;
+
+    /* Clear password field */
+    memset(handle->password, '\0', sizeof(handle->password));
+
+    /* Get password before '\r\nOK' and fill the field within handle */
+    CH9141_CMD_Send(handle, "AT+PASS?");
+    strncpy(handle->password, handle->rxBuf, strstr(handle->rxBuf, "\r\nOK") - handle->rxBuf); // FIXME: HardFault
+}
+
+ch9141_ErrorStatus_t CH9141_PasswordSet(ch9141_t *handle, ch9141_FuncState_t newState)
+{
+    char cmd[20];
+
+    if (handle == NULL)
+        return CH9141_STAT_ERROR;
+
+    /* Prepare the command */
+    strcpy(cmd, "AT+PASS=");
+    strcat(cmd, handle->password);
+
+    /* Set new password */
+    CH9141_CMD_Send(handle, cmd);
+
+    switch (newState)
+    {
+    case CH9141_FUNC_DISABLE:
+        CH9141_CMD_Send(handle, "AT+PASEN=OFF");
+        break;
+
+    case CH9141_FUNC_ENABLE:
+        CH9141_CMD_Send(handle, "AT+PASEN=ON");
+        break;
+
+    default:
+        return CH9141_STAT_ERROR;
+        break;
+    }
+
+    /* Reset device to take effect */
+    CH9141_CMD_Send(handle, "AT+RESET");
+    WAIT(100);
+
+    return CH9141_STAT_SUCCESS;
 }
 
 /**
@@ -110,6 +128,9 @@ ch9141_ErrorStatus_t CH9141_PasswordGet(ch9141_t *handle)
  */
 static void CH9141_Sleep(ch9141_t *handle, ch9141_FuncState_t newState)
 {
+    if (handle == NULL)
+        return;
+
     switch (newState)
     {
     case CH9141_FUNC_DISABLE:
@@ -132,9 +153,9 @@ static ch9141_ErrorStatus_t CH9141_HelloGet(ch9141_t *handle, char *helloGet, ch
     if (helloGet == NULL)
         return CH9141_STAT_ERROR;
 
-    /* Get hello message */
-    CH9141_CMD_Send(handle, "AT+HELLO?\r\n");
-    strncpy(helloGet, handle->rxBuf, strstr(handle->rxBuf, "\r\n") - handle->rxBuf);
+    /* Get hello message before '\r\nOK' */
+    CH9141_CMD_Send(handle, "AT+HELLO?");
+    strncpy(helloGet, handle->rxBuf, strstr(handle->rxBuf, "\r\nOK") - handle->rxBuf);
 
     /* Compare it with reference message */
     if (helloCmp != NULL)
@@ -148,6 +169,8 @@ static ch9141_ErrorStatus_t CH9141_HelloGet(ch9141_t *handle, char *helloGet, ch
 
 static ch9141_ErrorStatus_t CH9141_HelloSet(ch9141_t *handle, char const *helloSet)
 {
+    char cmd[50];
+
     if (handle == NULL)
         return CH9141_STAT_ERROR;
     if (helloSet == NULL)
@@ -155,48 +178,62 @@ static ch9141_ErrorStatus_t CH9141_HelloSet(ch9141_t *handle, char const *helloS
     if (strlen(helloSet) >= 30)
         return CH9141_STAT_ERROR;
 
-    char msg[50] = "AT+HELLO=";
-    strcat(msg, helloSet);
-    strcat(msg, "\r\n");
+    /* Prepare the command */
+    strcpy(cmd, "AT+HELLO=");
+    strcat(cmd, helloSet);
 
     /* Set custom hello message */
-    CH9141_CMD_Send(handle, msg);
+    CH9141_CMD_Send(handle, cmd);
 
     return CH9141_STAT_SUCCESS;
 }
 
-static ch9141_ErrorStatus_t CH9141_CMD_Send(ch9141_t *handle, char const *CMD)
+static ch9141_ErrorStatus_t CH9141_CMD_Send(ch9141_t *handle, char const *cmd)
 {
     char *errorCodeStart;
     char const *errorResponseTemplate = "\r\nERR:";
 
     if (handle == NULL)
         return CH9141_STAT_ERROR;
-    if (CMD == NULL)
+    if (cmd == NULL)
         return CH9141_STAT_ERROR;
 
+    /* Enter AT mode */
+    MODE_AT;
     WAIT(100);
 
+    /* Add trailing symbols */
+    strcpy(handle->txBuf, cmd);
+    strcat(handle->txBuf, "\r\n");
+
     /* Send AT command */
-    if (handle->interface.transmit(CMD, strlen(CMD), CH9141_TX_TIMEOUT) != CH9141_STAT_SUCCESS)
+    if (handle->interface.transmit(handle->txBuf, strlen(handle->txBuf), CH9141_TX_TIMEOUT) != CH9141_STAT_SUCCESS)
+    {
+        MODE_TRANSPARENT;
         return CH9141_STAT_ERROR;
+    }
 
     /* Get response */
     if (handle->interface.receive(handle->rxBuf, sizeof(handle->rxBuf), &handle->rxLen, CH9141_RX_TIMEOUT) !=
         CH9141_STAT_SUCCESS)
+    {
+        MODE_TRANSPARENT;
         return CH9141_STAT_ERROR;
+    }
 
     /* Check for error code in the buffer */
     if (strncmp(handle->rxBuf, errorResponseTemplate, strlen(errorResponseTemplate)) == 0)
     {
         /* Seek error code after colon */
-        errorCodeStart = strchr(handle->rxBuf, ':') + 1;
+        errorCodeStart = strstr(handle->rxBuf, errorResponseTemplate) + strlen(errorResponseTemplate);
 
         /* Fix error code in the device handle */
         handle->AT_Error = (ch9141_AT_Error_t) atoi(errorCodeStart);
 
+        MODE_TRANSPARENT;
         return CH9141_STAT_ERROR;
     }
+    MODE_TRANSPARENT;
 
     return CH9141_STAT_SUCCESS;
 }

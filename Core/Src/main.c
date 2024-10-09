@@ -91,8 +91,9 @@ int main(void)
     /* USER CODE BEGIN 2 */
     CH9141_Link(&ble1, ch9141_UART1_Receive, ch9141_UART1_Transmit, ch9141_Pin_Sleep1, ch9141_Pin_Mode1, ch9141_Delay);
     CH9141_Init(&ble1, "helloBLE");
-    // ble1.password =
+    strcpy(ble1.password, "999999");
     CH9141_PasswordSet(&ble1, CH9141_FUNC_ENABLE);
+    CH9141_PasswordGet(&ble1);
     /* USER CODE END 2 */
 
     /* Infinite loop */
