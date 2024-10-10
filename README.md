@@ -2,4 +2,6 @@
 
 ## [Manufacturer link](https://www.wch-ic.com/products/CH9141.html)
 
-<img style="display: block; margin: auto;" src="doc/under_construction.png">
+<p align="center">
+  <img src="doc/under_construction.png">
+</p>
