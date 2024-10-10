@@ -45,11 +45,6 @@
 
 typedef enum { CH9141_KEEP = 15, CH9141_EXIT } ch9141_Behaviour;
 
-static void CH9141_Sleep(ch9141_t *handle, ch9141_FuncState_t newState);
-static void CH9141_ModeGet(ch9141_t *handle);
-static void CH9141_ModeSet(ch9141_t *handle);
-static void CH9141_HelloGet(ch9141_t *handle, char *helloDest, uint8_t helloSize, char const *helloRef);
-static void CH9141_HelloSet(ch9141_t *handle, char const *helloSet);
 static void CH9141_CMD_Get(ch9141_t *handle, char *dest, uint8_t destSize, const char *cmd);
 static void CH9141_CMD_Set(ch9141_t *handle, char const *cmd);
 static void CH9141_ErrorHandler(ch9141_t *handle);
@@ -103,6 +98,26 @@ void CH9141_Init(ch9141_t *handle)
         CH9141_ERROR_SET(CH9141_ERR_RESPONSE, CH9141_KEEP);
 }
 
+void CH9141_Sleep(ch9141_t *handle, ch9141_FuncState_t newState)
+{
+    if (handle == NULL)
+        return;
+
+    switch (newState)
+    {
+    case CH9141_FUNC_DISABLE:
+        handle->interface.pinSleep(CH9141_PIN_SET);
+        break;
+
+    case CH9141_FUNC_ENABLE:
+        handle->interface.pinSleep(CH9141_PIN_RESET);
+        break;
+
+    default:
+        CH9141_ERROR_SET(CH9141_ERR_ARGUMENT, CH9141_KEEP);
+    }
+}
+
 void CH9141_PasswordGet(ch9141_t *handle)
 {
     if (handle == NULL)
@@ -150,30 +165,46 @@ void CH9141_PasswordSet(ch9141_t *handle, ch9141_FuncState_t newState)
     WAIT(100);
 }
 
-/**
- * @section Private func definitions
- */
-static void CH9141_Sleep(ch9141_t *handle, ch9141_FuncState_t newState)
+void CH9141_HelloGet(ch9141_t *handle, char *helloDest, uint8_t helloSize, char const *helloRef)
 {
     if (handle == NULL)
         return;
-
-    switch (newState)
-    {
-    case CH9141_FUNC_DISABLE:
-        handle->interface.pinSleep(CH9141_PIN_SET);
-        break;
-
-    case CH9141_FUNC_ENABLE:
-        handle->interface.pinSleep(CH9141_PIN_RESET);
-        break;
-
-    default:
+    if (helloDest == NULL)
         CH9141_ERROR_SET(CH9141_ERR_ARGUMENT, CH9141_KEEP);
+
+    /* Get hello message before */
+    CH9141_CMD_Get(handle, helloDest, helloSize, "AT+HELLO?");
+    CH9141_ERROR_CHECK;
+
+    /* Compare it with reference message */
+    if (helloRef != NULL)
+    {
+        if (strncmp(helloDest, helloRef, strlen(helloRef)) != 0)
+            CH9141_ERROR_SET(CH9141_ERR_RESPONSE, CH9141_KEEP);
     }
 }
 
-static void CH9141_ModeGet(ch9141_t *handle)
+void CH9141_HelloSet(ch9141_t *handle, char const *newHello)
+{
+    char cmd[50];
+
+    if (handle == NULL)
+        return;
+    if (newHello == NULL)
+        CH9141_ERROR_SET(CH9141_ERR_ARGUMENT, CH9141_KEEP);
+    if (strlen(newHello) >= 30)
+        CH9141_ERROR_SET(CH9141_ERR_ARGUMENT, CH9141_KEEP);
+
+    /* Prepare the command */
+    strcpy(cmd, "AT+HELLO=");
+    strcat(cmd, newHello);
+
+    /* Set custom hello message */
+    CH9141_CMD_Set(handle, cmd);
+    CH9141_ERROR_CHECK;
+}
+
+void CH9141_ModeGet(ch9141_t *handle)
 {
     char mode[2];
 
@@ -188,7 +219,7 @@ static void CH9141_ModeGet(ch9141_t *handle)
     handle->mode = (ch9141_Mode_t) atoi(mode);
 }
 
-static void CH9141_ModeSet(ch9141_t *handle)
+void CH9141_ModeSet(ch9141_t *handle)
 {
     if (handle == NULL)
         return;
@@ -215,45 +246,9 @@ static void CH9141_ModeSet(ch9141_t *handle)
     }
 }
 
-static void CH9141_HelloGet(ch9141_t *handle, char *helloDest, uint8_t helloSize, char const *helloRef)
-{
-    if (handle == NULL)
-        return;
-    if (helloDest == NULL)
-        CH9141_ERROR_SET(CH9141_ERR_ARGUMENT, CH9141_KEEP);
-
-    /* Get hello message before */
-    CH9141_CMD_Get(handle, helloDest, helloSize, "AT+HELLO?");
-    CH9141_ERROR_CHECK;
-
-    /* Compare it with reference message */
-    if (helloRef != NULL)
-    {
-        if (strncmp(helloDest, helloRef, strlen(helloRef)) != 0)
-            CH9141_ERROR_SET(CH9141_ERR_RESPONSE, CH9141_KEEP);
-    }
-}
-
-static void CH9141_HelloSet(ch9141_t *handle, char const *newHello)
-{
-    char cmd[50];
-
-    if (handle == NULL)
-        return;
-    if (newHello == NULL)
-        CH9141_ERROR_SET(CH9141_ERR_ARGUMENT, CH9141_KEEP);
-    if (strlen(newHello) >= 30)
-        CH9141_ERROR_SET(CH9141_ERR_ARGUMENT, CH9141_KEEP);
-
-    /* Prepare the command */
-    strcpy(cmd, "AT+HELLO=");
-    strcat(cmd, newHello);
-
-    /* Set custom hello message */
-    CH9141_CMD_Set(handle, cmd);
-    CH9141_ERROR_CHECK;
-}
-
+/**
+ * @section Private func definitions
+ */
 static void CH9141_CMD_Get(ch9141_t *handle, char *dest, uint8_t destSize, const char *cmd)
 {
     uint8_t responseSize;

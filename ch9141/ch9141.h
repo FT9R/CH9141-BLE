@@ -52,6 +52,7 @@ typedef struct ch9141_s
 void CH9141_Link(ch9141_t *handle, ch9141_Receive_fp fpReceive, ch9141_Transmit_fp fpTransmit,
                  ch9141_Pin_Sleep_fp fpPinSleep, ch9141_Pin_Mode_fp fpPinMode, ch9141_Delay_fp fpDelay);
 void CH9141_Init(ch9141_t *handle);
+void CH9141_Sleep(ch9141_t *handle, ch9141_FuncState_t newState);
 void CH9141_PasswordGet(ch9141_t *handle);
 
 /**
@@ -62,3 +63,8 @@ void CH9141_PasswordGet(ch9141_t *handle);
  * @note Use example: `strcpy(ble1.password, "123456"); CH9141_PasswordSet(&handle, CH9141_FUNC_ENABLE);`
  */
 void CH9141_PasswordSet(ch9141_t *handle, ch9141_FuncState_t newState);
+
+void CH9141_HelloGet(ch9141_t *handle, char *helloDest, uint8_t helloSize, char const *helloRef);
+void CH9141_HelloSet(ch9141_t *handle, char const *newHello);
+void CH9141_ModeGet(ch9141_t *handle);
+void CH9141_ModeSet(ch9141_t *handle);
