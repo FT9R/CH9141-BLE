@@ -22,105 +22,132 @@
         WAIT(100);                                   \
     }                                                \
     while (0)
+#define CH9141_ERROR_CHECK                    \
+    do                                        \
+    {                                         \
+        if (handle->error != CH9141_ERR_NONE) \
+        {                                     \
+            MODE_TRANSPARENT;                 \
+            return;                           \
+        }                                     \
+    }                                         \
+    while (0)
+#define CH9141_ERROR_SET(ERR, BEHAVIOUR) \
+    do                                   \
+    {                                    \
+        handle->error = (ERR);           \
+        if ((BEHAVIOUR) == CH9141_KEEP)  \
+            CH9141_ErrorHandler(handle); \
+        else                             \
+            return;                      \
+    }                                    \
+    while (0)
+
+typedef enum { CH9141_KEEP = 15, CH9141_EXIT } ch9141_Behaviour;
 
 static void CH9141_Sleep(ch9141_t *handle, ch9141_FuncState_t newState);
-static ch9141_ErrorStatus_t CH9141_HelloGet(ch9141_t *handle, char *helloGet, char const *helloCmp);
-static ch9141_ErrorStatus_t CH9141_HelloSet(ch9141_t *handle, char const *helloSet);
-static ch9141_ErrorStatus_t CH9141_CMD_Send(ch9141_t *handle, char const *cmd);
+static void CH9141_ModeGet(ch9141_t *handle);
+static void CH9141_ModeSet(ch9141_t *handle);
+static void CH9141_HelloGet(ch9141_t *handle, char *helloDest, uint8_t helloSize, char const *helloRef);
+static void CH9141_HelloSet(ch9141_t *handle, char const *helloSet);
+static void CH9141_CMD_Get(ch9141_t *handle, char *dest, uint8_t destSize, const char *cmd);
+static void CH9141_CMD_Set(ch9141_t *handle, char const *cmd);
+static void CH9141_ErrorHandler(ch9141_t *handle);
 
-ch9141_ErrorStatus_t CH9141_Link(ch9141_t *handle, ch9141_Receive_fp fpReceive, ch9141_Transmit_fp fpTransmit,
-                                 ch9141_Pin_Sleep_fp fpPinSleep, ch9141_Pin_Mode_fp fpPinMode, ch9141_Delay_fp fpDelay)
+void CH9141_Link(ch9141_t *handle, ch9141_Receive_fp fpReceive, ch9141_Transmit_fp fpTransmit,
+                 ch9141_Pin_Sleep_fp fpPinSleep, ch9141_Pin_Mode_fp fpPinMode, ch9141_Delay_fp fpDelay)
 {
     if (handle == NULL)
-        return CH9141_STAT_ERROR;
+        return;
     if ((fpReceive == NULL) || (fpTransmit == NULL) || (fpPinSleep == NULL) || (fpPinMode == NULL) || (fpDelay == NULL))
-        return CH9141_STAT_ERROR;
+        CH9141_ERROR_SET(CH9141_ERR_ARGUMENT, CH9141_KEEP);
 
+    /* Clear all handle fields */
+    memset(handle, '\0', sizeof(ch9141_t));
+
+    /* Link platform functions to the device */
     handle->interface.receive = fpReceive;
     handle->interface.transmit = fpTransmit;
     handle->interface.pinSleep = fpPinSleep;
     handle->interface.pinMode = fpPinMode;
     handle->interface.delay = fpDelay;
-
-    return CH9141_STAT_SUCCESS;
 }
 
-ch9141_ErrorStatus_t CH9141_Init(ch9141_t *handle, char const *helloSet)
+void CH9141_Init(ch9141_t *handle)
 {
-    char helloGet[30];
+    ch9141_Mode_t modeToSet;
 
     if (handle == NULL)
-        return CH9141_STAT_ERROR;
+        return;
 
     /* Exit from sleep mode */
-    CH9141_Sleep(handle, CH9141_FUNC_DISABLE);
     WAIT(100);
+    CH9141_Sleep(handle, CH9141_FUNC_DISABLE);
 
     /* Get any hello message after startup */
-    if (handle->interface.receive(handle->rxBuf, sizeof(handle->rxBuf), &handle->rxLen, CH9141_RX_TIMEOUT) !=
-        CH9141_STAT_SUCCESS)
-        return CH9141_STAT_ERROR;
+    handle->interface.receive(handle->rxBuf, sizeof(handle->rxBuf), &handle->rxLen, CH9141_RX_TIMEOUT);
 
-    if (helloSet != NULL)
-    {
-        /* Set new hello message */
-        CH9141_HelloSet(handle, helloSet);
+    /* Fix mode to be set to */
+    modeToSet = handle->mode;
 
-        /* Read hello message back and compare it with reference */
-        CH9141_HelloGet(handle, helloGet, helloSet);
-    }
+    /* Set new BLE mode */
+    CH9141_ModeSet(handle);
+
+    /* Reset device to take effect */
+    CH9141_CMD_Set(handle, "AT+RESET");
     WAIT(100);
 
-    return CH9141_STAT_SUCCESS;
+    /* Check mode switch result */
+    CH9141_ModeGet(handle);
+    if (handle->mode != modeToSet)
+        CH9141_ERROR_SET(CH9141_ERR_RESPONSE, CH9141_KEEP);
 }
 
-ch9141_ErrorStatus_t CH9141_PasswordGet(ch9141_t *handle)
+void CH9141_PasswordGet(ch9141_t *handle)
 {
     if (handle == NULL)
-        return CH9141_STAT_ERROR;
+        return;
 
-    /* Clear password field */
-    memset(handle->password, '\0', sizeof(handle->password));
-
-    /* Get password before '\r\nOK' and fill the field within handle */
-    CH9141_CMD_Send(handle, "AT+PASS?");
-    strncpy(handle->password, handle->rxBuf, strstr(handle->rxBuf, "\r\nOK") - handle->rxBuf); // FIXME: HardFault
+    /* Get password and fill the field within handle */
+    CH9141_CMD_Get(handle, handle->password, sizeof(handle->password), "AT+PASS?");
+    CH9141_ERROR_CHECK;
 }
 
-ch9141_ErrorStatus_t CH9141_PasswordSet(ch9141_t *handle, ch9141_FuncState_t newState)
+void CH9141_PasswordSet(ch9141_t *handle, ch9141_FuncState_t newState)
 {
     char cmd[20];
 
     if (handle == NULL)
-        return CH9141_STAT_ERROR;
+        return;
 
     /* Prepare the command */
     strcpy(cmd, "AT+PASS=");
     strcat(cmd, handle->password);
 
     /* Set new password */
-    CH9141_CMD_Send(handle, cmd);
+    CH9141_CMD_Set(handle, cmd);
+    CH9141_ERROR_CHECK;
 
     switch (newState)
     {
     case CH9141_FUNC_DISABLE:
-        CH9141_CMD_Send(handle, "AT+PASEN=OFF");
+        CH9141_CMD_Set(handle, "AT+PASEN=OFF");
+        CH9141_ERROR_CHECK;
         break;
 
     case CH9141_FUNC_ENABLE:
-        CH9141_CMD_Send(handle, "AT+PASEN=ON");
+        CH9141_CMD_Set(handle, "AT+PASEN=ON");
+        CH9141_ERROR_CHECK;
         break;
 
     default:
-        return CH9141_STAT_ERROR;
-        break;
+        CH9141_ERROR_SET(CH9141_ERR_ARGUMENT, CH9141_KEEP);
     }
 
     /* Reset device to take effect */
-    CH9141_CMD_Send(handle, "AT+RESET");
+    CH9141_CMD_Set(handle, "AT+RESET");
+    CH9141_ERROR_CHECK;
     WAIT(100);
-
-    return CH9141_STAT_SUCCESS;
 }
 
 /**
@@ -142,65 +169,119 @@ static void CH9141_Sleep(ch9141_t *handle, ch9141_FuncState_t newState)
         break;
 
     default:
-        break;
+        CH9141_ERROR_SET(CH9141_ERR_ARGUMENT, CH9141_KEEP);
     }
 }
 
-static ch9141_ErrorStatus_t CH9141_HelloGet(ch9141_t *handle, char *helloGet, char const *helloCmp)
+static void CH9141_ModeGet(ch9141_t *handle)
+{
+    char mode[2];
+
+    if (handle == NULL)
+        return;
+
+    /* Get current BLE working mode */
+    CH9141_CMD_Get(handle, mode, sizeof(mode), "AT+BLEMODE?");
+    CH9141_ERROR_CHECK;
+
+    /* Fill the field within handle */
+    handle->mode = (ch9141_Mode_t) atoi(mode);
+}
+
+static void CH9141_ModeSet(ch9141_t *handle)
 {
     if (handle == NULL)
-        return CH9141_STAT_ERROR;
-    if (helloGet == NULL)
-        return CH9141_STAT_ERROR;
+        return;
 
-    /* Get hello message before '\r\nOK' */
-    CH9141_CMD_Send(handle, "AT+HELLO?");
-    strncpy(helloGet, handle->rxBuf, strstr(handle->rxBuf, "\r\nOK") - handle->rxBuf);
-
-    /* Compare it with reference message */
-    if (helloCmp != NULL)
+    switch (handle->mode)
     {
-        if (strncmp(helloGet, helloCmp, strlen(helloCmp)) != 0)
-            return CH9141_STAT_ERROR;
-    }
+    case CH9141_MODE_BROADCAST: // Restricted by driver
+        CH9141_CMD_Set(handle, "AT+BLEMODE=0");
+        CH9141_ERROR_CHECK;
+        break;
 
-    return CH9141_STAT_SUCCESS;
+    case CH9141_MODE_HOST: // Restricted by driver
+        CH9141_CMD_Set(handle, "AT+BLEMODE=1");
+        CH9141_ERROR_CHECK;
+        break;
+
+    case CH9141_MODE_DEVICE:
+        CH9141_CMD_Set(handle, "AT+BLEMODE=2");
+        CH9141_ERROR_CHECK;
+        break;
+
+    default:
+        CH9141_ERROR_SET(CH9141_ERR_ARGUMENT, CH9141_KEEP);
+    }
 }
 
-static ch9141_ErrorStatus_t CH9141_HelloSet(ch9141_t *handle, char const *helloSet)
+static void CH9141_HelloGet(ch9141_t *handle, char *helloDest, uint8_t helloSize, char const *helloRef)
+{
+    if (handle == NULL)
+        return;
+    if (helloDest == NULL)
+        CH9141_ERROR_SET(CH9141_ERR_ARGUMENT, CH9141_KEEP);
+
+    /* Get hello message before */
+    CH9141_CMD_Get(handle, helloDest, helloSize, "AT+HELLO?");
+    CH9141_ERROR_CHECK;
+
+    /* Compare it with reference message */
+    if (helloRef != NULL)
+    {
+        if (strncmp(helloDest, helloRef, strlen(helloRef)) != 0)
+            CH9141_ERROR_SET(CH9141_ERR_RESPONSE, CH9141_KEEP);
+    }
+}
+
+static void CH9141_HelloSet(ch9141_t *handle, char const *newHello)
 {
     char cmd[50];
 
     if (handle == NULL)
-        return CH9141_STAT_ERROR;
-    if (helloSet == NULL)
-        return CH9141_STAT_ERROR;
-    if (strlen(helloSet) >= 30)
-        return CH9141_STAT_ERROR;
+        return;
+    if (newHello == NULL)
+        CH9141_ERROR_SET(CH9141_ERR_ARGUMENT, CH9141_KEEP);
+    if (strlen(newHello) >= 30)
+        CH9141_ERROR_SET(CH9141_ERR_ARGUMENT, CH9141_KEEP);
 
     /* Prepare the command */
     strcpy(cmd, "AT+HELLO=");
-    strcat(cmd, helloSet);
+    strcat(cmd, newHello);
 
     /* Set custom hello message */
-    CH9141_CMD_Send(handle, cmd);
-
-    return CH9141_STAT_SUCCESS;
+    CH9141_CMD_Set(handle, cmd);
+    CH9141_ERROR_CHECK;
 }
 
-static ch9141_ErrorStatus_t CH9141_CMD_Send(ch9141_t *handle, char const *cmd)
+static void CH9141_CMD_Get(ch9141_t *handle, char *dest, uint8_t destSize, const char *cmd)
+{
+    uint8_t responseSize;
+
+    /* Send the request */
+    CH9141_CMD_Set(handle, cmd);
+    CH9141_ERROR_CHECK;
+
+    /* Calculate response size and check it to match the destination size */
+    responseSize = strstr(handle->rxBuf, "\r\nOK") - handle->rxBuf;
+    if (responseSize > destSize)
+        CH9141_ERROR_SET(CH9141_ERR_MEMORY, CH9141_EXIT); // Response don't fit the destination buffer size
+
+    /* Extract response and pass it to the destination */
+    strncpy(dest, handle->rxBuf, responseSize);
+}
+
+static void CH9141_CMD_Set(ch9141_t *handle, char const *cmd)
 {
     char *errorCodeStart;
     char const *errorResponseTemplate = "\r\nERR:";
 
-    if (handle == NULL)
-        return CH9141_STAT_ERROR;
-    if (cmd == NULL)
-        return CH9141_STAT_ERROR;
-
     /* Enter AT mode */
     MODE_AT;
     WAIT(100);
+
+    /* Clear RX buffer */
+    memset(handle->rxBuf, '\0', sizeof(handle->rxBuf));
 
     /* Add trailing symbols */
     strcpy(handle->txBuf, cmd);
@@ -208,18 +289,12 @@ static ch9141_ErrorStatus_t CH9141_CMD_Send(ch9141_t *handle, char const *cmd)
 
     /* Send AT command */
     if (handle->interface.transmit(handle->txBuf, strlen(handle->txBuf), CH9141_TX_TIMEOUT) != CH9141_STAT_SUCCESS)
-    {
-        MODE_TRANSPARENT;
-        return CH9141_STAT_ERROR;
-    }
+        CH9141_ERROR_SET(CH9141_ERR_SERIAL, CH9141_EXIT);
 
     /* Get response */
     if (handle->interface.receive(handle->rxBuf, sizeof(handle->rxBuf), &handle->rxLen, CH9141_RX_TIMEOUT) !=
         CH9141_STAT_SUCCESS)
-    {
-        MODE_TRANSPARENT;
-        return CH9141_STAT_ERROR;
-    }
+        CH9141_ERROR_SET(CH9141_ERR_SERIAL, CH9141_EXIT);
 
     /* Check for error code in the buffer */
     if (strncmp(handle->rxBuf, errorResponseTemplate, strlen(errorResponseTemplate)) == 0)
@@ -227,13 +302,21 @@ static ch9141_ErrorStatus_t CH9141_CMD_Send(ch9141_t *handle, char const *cmd)
         /* Seek error code after colon */
         errorCodeStart = strstr(handle->rxBuf, errorResponseTemplate) + strlen(errorResponseTemplate);
 
-        /* Fix error code in the device handle */
-        handle->AT_Error = (ch9141_AT_Error_t) atoi(errorCodeStart);
+        /* Fix AT error code in the device handle */
+        handle->errorAT = (ch9141_AT_Error_t) atoi(errorCodeStart);
 
-        MODE_TRANSPARENT;
-        return CH9141_STAT_ERROR;
+        CH9141_ERROR_SET(CH9141_ERR_AT, CH9141_EXIT);
     }
     MODE_TRANSPARENT;
+}
 
-    return CH9141_STAT_SUCCESS;
+static void CH9141_ErrorHandler(ch9141_t *handle)
+{
+    if (handle == NULL)
+        return;
+
+    while (true)
+    {
+        LEDR_ON; // FIXME: platform
+    }
 }
