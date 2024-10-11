@@ -1492,10 +1492,10 @@
     <group>
         <name>ch9141</name>
         <file>
-            <name>$PROJ_DIR$\..\ch9141\ch9141.c</name>
+            <name>$PROJ_DIR$\..\..\..\ch9141\ch9141.c</name>
         </file>
         <file>
-            <name>$PROJ_DIR$\..\ch9141\ch9141_Interface.c</name>
+            <name>$PROJ_DIR$\..\..\..\ch9141\ch9141_Interface.c</name>
         </file>
     </group>
     <group>
