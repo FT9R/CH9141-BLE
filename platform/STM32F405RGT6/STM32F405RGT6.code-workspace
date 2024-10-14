@@ -7,5 +7,10 @@
 			"path": "../../ch9141"
 		}
 	],
-	"settings": {}
+	"settings": {
+		"files.associations": {
+			"ch9141_interface.h": "c",
+			"string.h": "c"
+		}
+	}
 }
