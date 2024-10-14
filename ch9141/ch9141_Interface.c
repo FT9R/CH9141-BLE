@@ -1,27 +1,31 @@
 #include "CH9141_Interface.h"
 
-#define CH9141_MIN_DELAY 2
+#define CH9141_MIN_DELAY  2
+#define CH9141_RX_TIMEOUT 500
+#define CH9141_TX_TIMEOUT 500
 
-ch9141_ErrorStatus_t CH9141_UART1_Receive(char *pDataRx, uint16_t size, uint16_t *rxLen, uint32_t timeout)
+ch9141_ErrorStatus_t CH9141_UART1_Receive(char *pDataRx, uint16_t size, uint16_t *rxLen)
 {
     if (pDataRx == NULL)
         return CH9141_STAT_ERROR;
     if (size == 0u)
         return CH9141_STAT_ERROR;
 
-    return HAL_UARTEx_ReceiveToIdle(&huart4, (uint8_t *) pDataRx, size, rxLen, timeout) == HAL_OK ? CH9141_STAT_SUCCESS
-                                                                                                  : CH9141_STAT_ERROR;
+    return HAL_UARTEx_ReceiveToIdle(&huart4, (uint8_t *) pDataRx, size, rxLen, CH9141_RX_TIMEOUT) == HAL_OK
+               ? CH9141_STAT_SUCCESS
+               : CH9141_STAT_ERROR;
 }
 
-ch9141_ErrorStatus_t CH9141_UART1_Transmit(char const *pDataTx, uint16_t size, uint32_t timeout)
+ch9141_ErrorStatus_t CH9141_UART1_Transmit(char const *pDataTx, uint16_t size)
 {
     if (pDataTx == NULL)
         return CH9141_STAT_ERROR;
     if (size == 0u)
         return CH9141_STAT_ERROR;
 
-    return HAL_UART_Transmit(&huart4, (uint8_t const *) pDataTx, size, timeout) == HAL_OK ? CH9141_STAT_SUCCESS
-                                                                                          : CH9141_STAT_ERROR;
+    return HAL_UART_Transmit(&huart4, (uint8_t const *) pDataTx, size, CH9141_TX_TIMEOUT) == HAL_OK
+               ? CH9141_STAT_SUCCESS
+               : CH9141_STAT_ERROR;
 }
 
 void CH9141_Pin_Sleep1(ch9141_PinState_t newState)
