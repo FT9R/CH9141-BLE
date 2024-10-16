@@ -52,6 +52,7 @@ void CH9141_Init(ch9141_t *handle, bool factoryRestore)
 
     /* Exit from sleep mode */
     handle->interface.pinSleep(CH9141_PIN_STATE_SET);
+    handle->interface.delay(100);
 
     /* Restore factory settings if requested */
     if (factoryRestore)
@@ -795,6 +796,7 @@ static void CH9141_CMD_Set(ch9141_t *handle, char const *cmd)
     if (handle->interface.transmit(handle->txBuf, strlen(handle->txBuf)) != CH9141_ERROR_STATUS_SUCCESS)
     {
         handle->error = CH9141_ERR_SERIAL_TX;
+        handle->interface.pinMode(CH9141_PIN_STATE_SET);
         return;
     }
 
@@ -802,6 +804,7 @@ static void CH9141_CMD_Set(ch9141_t *handle, char const *cmd)
     if (handle->interface.receive(handle->rxBuf, sizeof(handle->rxBuf), &handle->rxLen) != CH9141_ERROR_STATUS_SUCCESS)
     {
         handle->error = CH9141_ERR_SERIAL_RX;
+        handle->interface.pinMode(CH9141_PIN_STATE_SET);
         return;
     }
 
@@ -814,12 +817,14 @@ static void CH9141_CMD_Set(ch9141_t *handle, char const *cmd)
             {
                 /* Can't find any digit */
                 handle->error = CH9141_ERR_RESPONSE;
+                handle->interface.pinMode(CH9141_PIN_STATE_SET);
                 return;
             }
 
         /* Convert msg->string->integer and fill the field within handle */
         handle->error = CH9141_ERR_AT;
         handle->errorAT = (ch9141_AT_Error_t) atoi(strtok(pResponse, "\r"));
+        handle->interface.pinMode(CH9141_PIN_STATE_SET);
         return;
     }
 
