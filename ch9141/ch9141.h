@@ -8,10 +8,11 @@ typedef void (*ch9141_Pin_Sleep_fp)(ch9141_PinState_t newState);
 typedef void (*ch9141_Pin_Mode_fp)(ch9141_PinState_t newState);
 typedef void (*ch9141_Delay_fp)(uint32_t ms);
 
+typedef enum ch9141_FuncState_e { CH9141_FUNC_STATE_DISABLE = 30, CH9141_FUNC_STATE_ENABLE } ch9141_FuncState_t;
+
 typedef enum ch9141_Error_e {
     CH9141_ERR_NONE,
     CH9141_ERR_ARGUMENT,
-    CH9141_ERR_MEMORY,
     CH9141_ERR_SERIAL_RX,
     CH9141_ERR_SERIAL_TX,
     CH9141_ERR_AT,
@@ -40,51 +41,32 @@ typedef enum ch9141_SleepMode_e {
     CH9141_SLEEPMODE_UNDEFINED
 } ch9141_SleepMode_t;
 
-typedef enum ch9141_BLEStatAdv_e {
-    CH9141_BLESTA_ADV_NOINIT,
-    CH9141_BLESTA_ADV_INIT,
-    CH9141_BLESTA_ADV,
-} ch9141_BLEStatAdv_t;
-
-typedef enum ch9141_BLEStatHost_e {
-    CH9141_BLESTA_HOST_NOINIT,
-    CH9141_BLESTA_HOST_SCAN,
-    CH9141_BLESTA_HOST_CONNECTING,
-    CH9141_BLESTA_HOST_CONNECTED,
-    CH9141_BLESTA_HOST_DISCONNECTING
-} ch9141_BLEStatHost_t;
-
-typedef enum ch9141_BLEStatSlave_e {
-    CH9141_BLESTA_SLAVE_NOINIT,
-    CH9141_BLESTA_SLAVE_INIT,
-    CH9141_BLESTA_SLAVE_ADV,
-    CH9141_BLESTA_SLAVE_ADVRDY,
-    CH9141_BLESTA_SLAVE_CONTIMEOUT,
-    CH9141_BLESTA_SLAVE_CONNECTED
-} ch9141_BLEStatSlave_t;
-
 typedef enum ch9141_State_e {
     CH9141_STATE_UNDEFINED,
     CH9141_STATE_IDLE,
     CH9141_STATE_LINK,
     CH9141_STATE_INIT,
-    CH9141_STATE_RESET,
+    CH9141_STATE_DISCONNECT,
+    CH9141_STATE_HELLO_GET,
+    CH9141_STATE_HELLO_SET,
+    CH9141_STATE_CHIPNAME_GET,
+    CH9141_STATE_CHIPNAME_SET,
+    CH9141_STATE_DEVICENAME_GET,
+    CH9141_STATE_DEVICENAME_SET,
     CH9141_STATE_SLEEP_SWITCH,
     CH9141_STATE_SLEEP_GET,
     CH9141_STATE_SLEEP_SET,
+    CH9141_STATE_POWER_GET,
+    CH9141_STATE_POWER_SET,
     CH9141_STATE_PASSWORD_GET,
     CH9141_STATE_PASSWORD_SET,
-    CH9141_STATE_HELLO_GET,
-    CH9141_STATE_HELLO_SET,
     CH9141_STATE_MODE_GET,
     CH9141_STATE_MODE_SET,
     CH9141_STATE_STATUS_GET,
     CH9141_STATE_MAC_LOCAL_GET,
     CH9141_STATE_MAC_LOCAL_SET,
     CH9141_STATE_MAC_REMOTE_GET,
-    CH9141_STATE_VCC_GET,
-    CH9141_STATE_POWER_GET,
-    CH9141_STATE_POWER_SET
+    CH9141_STATE_VCC_GET
 } ch9141_State_t;
 
 typedef enum ch9141_Power_e {
@@ -99,6 +81,17 @@ typedef enum ch9141_Power_e {
     CH9141_POWER_UNDEFINED
 } ch9141_Power_t;
 
+typedef enum ch9141_BLEStatus_e {
+    CH9141_BLESTAT_NOINIT,
+    CH9141_BLESTAT_INIT_SCAN,
+    CH9141_BLESTAT_ADV_CONNECTING,
+    CH9141_BLESTAT_CONNECTED_ADVRDY,
+    CH9141_BLESTAT_DISCONNECTING_CONNTIMEOUT,
+    CH9141_BLESTAT_CONNECTED,
+    CH9141_BLESTAT_UNDEFINED, // Custom - not defined by manufacturer
+    CH9141_BLESTAT_ERROR
+} ch9141_BLEStatus_t;
+
 typedef struct ch9141_s
 {
     struct
@@ -111,43 +104,34 @@ typedef struct ch9141_s
     } interface;
     char rxBuf[100];
     char txBuf[100];
-    char password[6 + 1];
-    char macLocal[18];
-    char macRemote[18];
-    bool isConnected;
     uint16_t rxLen; // Indicates number of data available in reception buffer
-    uint16_t vcc; // Supply voltage [mV]
-    ch9141_Mode_t bleMode;
-    union
-    {
-        ch9141_BLEStatAdv_t statusAdv;
-        ch9141_BLEStatHost_t statusHost;
-        ch9141_BLEStatSlave_t statusSlave;
-    } bleStatus;
-    ch9141_SleepMode_t sleepMode;
+    uint8_t responseLen;
     ch9141_State_t state;
-    ch9141_Power_t power;
     ch9141_Error_t error; // Driver error codes
     ch9141_AT_Error_t errorAT; // Device error codes, relevant if handle.error = CH9141_ERR_AT
 } ch9141_t;
 
 void CH9141_Link(ch9141_t *handle, ch9141_Receive_fp fpReceive, ch9141_Transmit_fp fpTransmit,
                  ch9141_Pin_Sleep_fp fpPinSleep, ch9141_Pin_Mode_fp fpPinMode);
-void CH9141_Init(ch9141_t *handle);
-void CH9141_Reset(ch9141_t *handle);
-void CH9141_SleepSwitch(ch9141_t *handle, ch9141_FuncState_t newState);
+void CH9141_Init(ch9141_t *handle, bool factoryRestore);
+void CH9141_Disconnect(ch9141_t *handle);
+char *CH9141_HelloGet(ch9141_t *handle);
+void CH9141_HelloSet(ch9141_t *handle, char const *helloSet);
+char *CH9141_DeviceNameGet(ch9141_t *handle);
+void CH9141_DeviceNameSet(ch9141_t *handle, char const *nameSet);
+char *CH9141_ChipNameGet(ch9141_t *handle);
+void CH9141_ChipNameSet(ch9141_t *handle, char const *nameSet);
+void CH9141_SleepSwitch(ch9141_t *handle, ch9141_FuncState_t funcState);
 ch9141_SleepMode_t CH9141_SleepGet(ch9141_t *handle);
-void CH9141_SleepSet(ch9141_t *handle);
+void CH9141_SleepSet(ch9141_t *handle, ch9141_SleepMode_t sleepMode);
 ch9141_Power_t CH9141_PowerGet(ch9141_t *handle);
-void CH9141_PowerSet(ch9141_t *handle);
-void CH9141_PasswordGet(ch9141_t *handle);
-void CH9141_PasswordSet(ch9141_t *handle, ch9141_FuncState_t newState);
-void CH9141_HelloGet(ch9141_t *handle, char *helloDest, uint8_t helloSize, char const *helloRef);
-void CH9141_HelloSet(ch9141_t *handle, char const *newHello);
+void CH9141_PowerSet(ch9141_t *handle, ch9141_Power_t power);
 ch9141_Mode_t CH9141_ModeGet(ch9141_t *handle);
-void CH9141_ModeSet(ch9141_t *handle);
-bool CH9141_StatusGet(ch9141_t *handle);
-void CH9141_MACLocalGet(ch9141_t *handle);
-void CH9141_MACLocalSet(ch9141_t *handle);
-void CH9141_MACRemoteGet(ch9141_t *handle);
+void CH9141_ModeSet(ch9141_t *handle, ch9141_Mode_t mode);
+char *CH9141_PasswordGet(ch9141_t *handle);
+void CH9141_PasswordSet(ch9141_t *handle, const char *passwordSet, ch9141_FuncState_t funcState);
+ch9141_BLEStatus_t CH9141_StatusGet(ch9141_t *handle);
+char *CH9141_MACLocalGet(ch9141_t *handle);
+void CH9141_MACLocalSet(ch9141_t *handle, const char *mac);
+char *CH9141_MACRemoteGet(ch9141_t *handle);
 uint16_t CH9141_VCCGet(ch9141_t *handle);

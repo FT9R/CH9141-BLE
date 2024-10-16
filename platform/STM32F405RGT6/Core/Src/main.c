@@ -23,7 +23,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "ch9141.h"
+#include "ch9141_Demo.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -44,7 +44,7 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-ch9141_t ble1;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -89,27 +89,7 @@ int main(void)
     MX_GPIO_Init();
     MX_UART4_Init();
     /* USER CODE BEGIN 2 */
-    CH9141_Link(&ble1, CH9141_UART1_Receive, CH9141_UART1_Transmit, CH9141_Pin_Sleep1, CH9141_Pin_Mode1);
-    ble1.bleMode = CH9141_MODE_DEVICE;
-    CH9141_Init(&ble1);
-
-    // strcpy(ble1.password, "000000");
-    // CH9141_PasswordSet(&ble1, CH9141_FUNC_ENABLE);
-    // CH9141_PasswordGet(&ble1);
-
-    // ble1.sleepMode = CH9141_SLEEPMODE_LOW_ENERGY;
-    // CH9141_SleepSet(&ble1);
-    // CH9141_Reset(&ble1);
-    // CH9141_SleepGet(&ble1);
-
-    CH9141_MACLocalGet(&ble1);
-    CH9141_MACLocalSet(&ble1);
-
-    while (!CH9141_StatusGet(&ble1)) {}
-    CH9141_MACRemoteGet(&ble1);
-
-    CH9141_VCCGet(&ble1);
-
+    CH9141_Demo();
     /* USER CODE END 2 */
 
     /* Infinite loop */

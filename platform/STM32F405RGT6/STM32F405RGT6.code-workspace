@@ -10,7 +10,8 @@
 	"settings": {
 		"files.associations": {
 			"ch9141_interface.h": "c",
-			"string.h": "c"
+			"string.h": "c",
+			"ch9141.h": "c"
 		}
 	}
 }

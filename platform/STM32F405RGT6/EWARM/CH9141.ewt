@@ -1472,6 +1472,9 @@
             <group>
                 <name>Core</name>
                 <file>
+                    <name>$PROJ_DIR$\..\Core\Src\ch9141_Interface.c</name>
+                </file>
+                <file>
                     <name>$PROJ_DIR$\..\Core\Src\gpio.c</name>
                 </file>
                 <file>
@@ -1495,7 +1498,13 @@
             <name>$PROJ_DIR$\..\..\..\ch9141\ch9141.c</name>
         </file>
         <file>
-            <name>$PROJ_DIR$\..\..\..\ch9141\ch9141_Interface.c</name>
+            <name>$PROJ_DIR$\..\..\..\ch9141\ch9141.h</name>
+        </file>
+        <file>
+            <name>$PROJ_DIR$\..\..\..\ch9141\ch9141_Demo.c</name>
+        </file>
+        <file>
+            <name>$PROJ_DIR$\..\..\..\ch9141\ch9141_Demo.h</name>
         </file>
     </group>
     <group>
