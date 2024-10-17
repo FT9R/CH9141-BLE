@@ -10,6 +10,12 @@ void CH9141_Demo(void)
     CH9141_Link(ble1, CH9141_UART1_Receive, CH9141_UART1_Transmit, CH9141_Pin_Sleep1, CH9141_Pin_Mode1);
     CH9141_Init(ble1, true);
 
+    strcpy(paramSet, "115200,8,1,0,100");
+    CH9141_SerialSet(ble1, 115200, 8, 1, CH9141_SERIAL_PARITY_NONE, 100); // Useless here, but let it be
+    strncpy(bleResponse, CH9141_SerialGet(ble1), ble1->responseLen);
+    if (strcmp(bleResponse, paramSet) != 0)
+        Error_Handler();
+
     strcpy(paramSet, "Hello!!!");
     CH9141_HelloSet(ble1, paramSet);
     strncpy(bleResponse, CH9141_HelloGet(ble1), ble1->responseLen);

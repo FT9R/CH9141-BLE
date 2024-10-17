@@ -41,11 +41,19 @@ typedef enum ch9141_SleepMode_e {
     CH9141_SLEEPMODE_UNDEFINED
 } ch9141_SleepMode_t;
 
+typedef enum ch9141_SerialParity_e {
+    CH9141_SERIAL_PARITY_NONE,
+    CH9141_SERIAL_PARITY_ODD,
+    CH9141_SERIAL_PARITY_EVEN
+} ch9141_SerialParity_t;
+
 typedef enum ch9141_State_e {
     CH9141_STATE_UNDEFINED,
     CH9141_STATE_IDLE,
     CH9141_STATE_LINK,
     CH9141_STATE_INIT,
+    CH9141_STATE_SERIAL_GET,
+    CH9141_STATE_SERIAL_SET,
     CH9141_STATE_DISCONNECT,
     CH9141_STATE_HELLO_GET,
     CH9141_STATE_HELLO_SET,
@@ -114,6 +122,9 @@ typedef struct ch9141_s
 void CH9141_Link(ch9141_t *handle, ch9141_Receive_fp fpReceive, ch9141_Transmit_fp fpTransmit,
                  ch9141_Pin_Sleep_fp fpPinSleep, ch9141_Pin_Mode_fp fpPinMode);
 void CH9141_Init(ch9141_t *handle, bool factoryRestore);
+char *CH9141_SerialGet(ch9141_t *handle);
+void CH9141_SerialSet(ch9141_t *handle, uint32_t baudRate, uint8_t dataBit, uint8_t stopBit,
+                      ch9141_SerialParity_t parity, uint16_t timeout);
 void CH9141_Disconnect(ch9141_t *handle);
 char *CH9141_HelloGet(ch9141_t *handle);
 void CH9141_HelloSet(ch9141_t *handle, char const *helloSet);

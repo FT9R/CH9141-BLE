@@ -18,14 +18,14 @@ void CH9141_Link(ch9141_t *handle, ch9141_Receive_fp fpReceive, ch9141_Transmit_
     /* Set operational state */
     handle->state = CH9141_STATE_LINK;
 
-    /* Clear all interface fields */
-    memset(&handle->interface, '\0', sizeof(handle->interface));
-
-    if ((fpReceive == NULL) || (fpTransmit == NULL) || (fpPinSleep == NULL) || (fpPinMode == NULL))
+    if (fpReceive == NULL || fpTransmit == NULL || fpPinSleep == NULL || fpPinMode == NULL)
     {
         handle->error = CH9141_ERR_ARGUMENT;
         return;
     }
+
+    /* Clear all interface fields */
+    memset(&handle->interface, '\0', sizeof(handle->interface));
 
     /* Link platform functions to the device */
     handle->interface.receive = fpReceive;
@@ -52,11 +52,87 @@ void CH9141_Init(ch9141_t *handle, bool factoryRestore)
 
     /* Exit from sleep mode */
     handle->interface.pinSleep(CH9141_PIN_STATE_SET);
-    handle->interface.delay(100);
+    handle->interface.delay(1000);
 
     /* Restore factory settings if requested */
     if (factoryRestore)
         CH9141_Reload(handle);
+    if (handle->error != CH9141_ERR_NONE)
+        return;
+
+    /* Set operational state */
+    handle->state = CH9141_STATE_IDLE;
+}
+
+char *CH9141_SerialGet(ch9141_t *handle)
+{
+    if (handle == NULL)
+        return NULL;
+
+    /* Check any existing errors */
+    if (handle->error != CH9141_ERR_NONE)
+        return NULL;
+
+    /* Set operational state */
+    handle->state = CH9141_STATE_SERIAL_GET;
+
+    /* Request the parameter */
+    CH9141_CMD_Get(handle, "AT+UART?");
+    if (handle->error != CH9141_ERR_NONE)
+        return NULL;
+
+    /* Set operational state */
+    handle->state = CH9141_STATE_IDLE;
+
+    return handle->rxBuf;
+}
+
+void CH9141_SerialSet(ch9141_t *handle, uint32_t baudRate, uint8_t dataBit, uint8_t stopBit,
+                      ch9141_SerialParity_t parity, uint16_t timeout)
+{
+    char cmd[30] = {0};
+
+    if (handle == NULL)
+        return;
+
+    /* Check any existing errors */
+    if (handle->error != CH9141_ERR_NONE)
+        return;
+
+    /* Set operational state */
+    handle->state = CH9141_STATE_SERIAL_SET;
+
+    if (baudRate == 0 || baudRate > 1e6)
+    {
+        handle->error = CH9141_ERR_ARGUMENT;
+        return;
+    }
+    if (dataBit != 8 && dataBit != 9)
+    {
+        handle->error = CH9141_ERR_ARGUMENT;
+        return;
+    }
+    if (stopBit != 1 && stopBit != 2)
+    {
+        handle->error = CH9141_ERR_ARGUMENT;
+        return;
+    }
+    if (timeout == 0)
+    {
+        handle->error = CH9141_ERR_ARGUMENT;
+        return;
+    }
+
+    /* Prepare the command */
+    sprintf(cmd, "AT+UART=%u,%u,%u,%u,%u", baudRate, dataBit, stopBit, parity, timeout);
+
+    /* Set the parameter */
+    CH9141_CMD_Set(handle, cmd);
+    if (handle->error != CH9141_ERR_NONE)
+        return;
+
+    /* Reset device to take effect */
+    CH9141_Reset(handle);
     if (handle->error != CH9141_ERR_NONE)
         return;
 
@@ -352,7 +428,6 @@ ch9141_SleepMode_t CH9141_SleepGet(ch9141_t *handle)
 void CH9141_SleepSet(ch9141_t *handle, ch9141_SleepMode_t sleepMode)
 {
     char cmd[20] = {0};
-    char param[2] = {0};
 
     if (handle == NULL)
         return;
@@ -364,10 +439,11 @@ void CH9141_SleepSet(ch9141_t *handle, ch9141_SleepMode_t sleepMode)
     /* Set operational state */
     handle->state = CH9141_STATE_SLEEP_SET;
 
+    if (sleepMode == CH9141_SLEEPMODE_UNDEFINED)
+        return;
+
     /* Prepare the command */
-    strcpy(cmd, "AT+SLEEP=");
-    sprintf(param, "%d", sleepMode);
-    strcat(cmd, param);
+    sprintf(cmd, "AT+SLEEP=%u", sleepMode);
 
     /* Set the parameter */
     CH9141_CMD_Set(handle, cmd);
@@ -421,7 +497,6 @@ ch9141_Power_t CH9141_PowerGet(ch9141_t *handle)
 void CH9141_PowerSet(ch9141_t *handle, ch9141_Power_t power)
 {
     char cmd[20] = {0};
-    char param[2] = {0};
 
     if (handle == NULL)
         return;
@@ -433,10 +508,11 @@ void CH9141_PowerSet(ch9141_t *handle, ch9141_Power_t power)
     /* Set operational state */
     handle->state = CH9141_STATE_POWER_SET;
 
+    if (power == CH9141_POWER_UNDEFINED)
+        return;
+
     /* Prepare the command */
-    strcpy(cmd, "AT+TPL=");
-    sprintf(param, "%d", power);
-    strcat(cmd, param);
+    sprintf(cmd, "AT+TPL=%u", power);
 
     /* Set the parameter */
     CH9141_CMD_Set(handle, cmd);
@@ -478,7 +554,6 @@ ch9141_Mode_t CH9141_ModeGet(ch9141_t *handle)
 void CH9141_ModeSet(ch9141_t *handle, ch9141_Mode_t mode)
 {
     char cmd[20] = {0};
-    char param[2] = {0};
 
     if (handle == NULL)
         return;
@@ -490,10 +565,11 @@ void CH9141_ModeSet(ch9141_t *handle, ch9141_Mode_t mode)
     /* Set operational state */
     handle->state = CH9141_STATE_MODE_SET;
 
+    if (mode == CH9141_MODE_UNDEFINED)
+        return;
+
     /* Prepare the command */
-    strcpy(cmd, "AT+BLEMODE=");
-    sprintf(param, "%d", mode);
-    strcat(cmd, param);
+    sprintf(cmd, "AT+BLEMODE=%u", mode);
 
     /* Set the parameter */
     CH9141_CMD_Set(handle, cmd);
