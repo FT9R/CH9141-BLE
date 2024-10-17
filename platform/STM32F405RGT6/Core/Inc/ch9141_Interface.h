@@ -17,7 +17,7 @@ typedef enum ch9141_PinState_e { CH9141_PIN_STATE_RESET = 20, CH9141_PIN_STATE_S
  * @param rxLen Number of bytes actually received
  * @return Status of the data transfer request operation
  */
-ch9141_ErrorStatus_t CH9141_UART1_Receive(char *pDataRx, uint16_t size, uint16_t *rxLen);
+ch9141_ErrorStatus_t CH9141_UART4_Receive(char *pDataRx, uint16_t size, uint16_t *rxLen);
 
 /**
  * @brief The one of UARTx transmit function templates
@@ -25,7 +25,7 @@ ch9141_ErrorStatus_t CH9141_UART1_Receive(char *pDataRx, uint16_t size, uint16_t
  * @param size Number of bytes to send
  * @return Status of the data transfer request operation
  */
-ch9141_ErrorStatus_t CH9141_UART1_Transmit(char const *pDataTx, uint16_t size);
+ch9141_ErrorStatus_t CH9141_UART4_Transmit(char const *pDataTx, uint16_t size);
 
 /**
  * @brief Sleep pin set/reset function template associated with the 1st device

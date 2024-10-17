@@ -4,7 +4,7 @@
 #define CH9141_RX_TIMEOUT 2000
 #define CH9141_TX_TIMEOUT 2000
 
-ch9141_ErrorStatus_t CH9141_UART1_Receive(char *pDataRx, uint16_t size, uint16_t *rxLen)
+ch9141_ErrorStatus_t CH9141_UART4_Receive(char *pDataRx, uint16_t size, uint16_t *rxLen)
 {
     if (pDataRx == NULL)
         return CH9141_ERROR_STATUS_ERROR;
@@ -16,7 +16,7 @@ ch9141_ErrorStatus_t CH9141_UART1_Receive(char *pDataRx, uint16_t size, uint16_t
                : CH9141_ERROR_STATUS_ERROR;
 }
 
-ch9141_ErrorStatus_t CH9141_UART1_Transmit(char const *pDataTx, uint16_t size)
+ch9141_ErrorStatus_t CH9141_UART4_Transmit(char const *pDataTx, uint16_t size)
 {
     if (pDataTx == NULL)
         return CH9141_ERROR_STATUS_ERROR;

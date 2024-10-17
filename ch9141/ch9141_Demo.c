@@ -7,7 +7,7 @@ static uint16_t vcc;
 
 void CH9141_Demo(void)
 {
-    CH9141_Link(ble1, CH9141_UART1_Receive, CH9141_UART1_Transmit, CH9141_Pin_Sleep1, CH9141_Pin_Mode1);
+    CH9141_Link(ble1, CH9141_UART4_Receive, CH9141_UART4_Transmit, CH9141_Pin_Sleep1, CH9141_Pin_Mode1);
     CH9141_Init(ble1, true);
 
     strcpy(paramSet, "115200,8,1,0,100");
