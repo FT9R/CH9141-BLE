@@ -1,6 +1,6 @@
 #include "ch9141.h"
 
-static void CH9141_CMD_Get(ch9141_t *handle, const char *cmd);
+static void CH9141_CMD_Get(ch9141_t *handle, char const *cmd);
 static void CH9141_CMD_Set(ch9141_t *handle, char const *cmd);
 static void CH9141_Reset(ch9141_t *handle);
 static void CH9141_Reload(ch9141_t *handle);
@@ -608,7 +608,7 @@ char *CH9141_PasswordGet(ch9141_t *handle)
     return handle->rxBuf;
 }
 
-void CH9141_PasswordSet(ch9141_t *handle, const char *passwordSet, ch9141_FuncState_t funcState)
+void CH9141_PasswordSet(ch9141_t *handle, char const *passwordSet, ch9141_FuncState_t funcState)
 {
     char cmd[20] = {0};
 
@@ -715,7 +715,7 @@ char *CH9141_MACLocalGet(ch9141_t *handle)
     return handle->rxBuf;
 }
 
-void CH9141_MACLocalSet(ch9141_t *handle, const char *mac)
+void CH9141_MACLocalSet(ch9141_t *handle, char const *mac)
 {
     char cmd[30] = {0};
 
@@ -813,7 +813,7 @@ uint16_t CH9141_VCCGet(ch9141_t *handle)
  * @param handle Pointer to the device handle
  * @param cmd AT command to get the parameter. Should be null-terminated string
  */
-static void CH9141_CMD_Get(ch9141_t *handle, const char *cmd)
+static void CH9141_CMD_Get(ch9141_t *handle, char const *cmd)
 {
     if (handle == NULL)
         return;
