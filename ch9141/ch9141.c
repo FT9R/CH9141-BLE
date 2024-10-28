@@ -32,7 +32,6 @@ void CH9141_Link(ch9141_t *handle, ch9141_Receive_fp fpReceive, ch9141_Transmit_
     handle->interface.transmit = fpTransmit;
     handle->interface.pinSleep = fpPinSleep;
     handle->interface.pinMode = fpPinMode;
-    handle->interface.delay = CH9141_Delay;
 
     /* Set operational state */
     handle->state = CH9141_STATE_IDLE;
@@ -52,7 +51,7 @@ void CH9141_Init(ch9141_t *handle, bool factoryRestore)
 
     /* Exit from sleep mode */
     handle->interface.pinSleep(CH9141_PIN_STATE_SET);
-    handle->interface.delay(1000);
+    CH9141_Delay(1000);
 
     /* Restore factory settings if requested */
     if (factoryRestore)
@@ -859,7 +858,7 @@ static void CH9141_CMD_Set(ch9141_t *handle, char const *cmd)
 
     /* AT mode */
     handle->interface.pinMode(CH9141_PIN_STATE_RESET);
-    handle->interface.delay(10);
+    CH9141_Delay(10);
 
     /* Clear RX buffer */
     memset(handle->rxBuf, '\0', sizeof(handle->rxBuf));
@@ -921,7 +920,7 @@ static void CH9141_Reset(ch9141_t *handle)
     CH9141_CMD_Set(handle, "AT+RESET");
     if (handle->error != CH9141_ERR_NONE)
         return;
-    handle->interface.delay(300);
+    CH9141_Delay(300);
 }
 
 /**

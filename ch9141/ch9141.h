@@ -6,7 +6,6 @@ typedef ch9141_ErrorStatus_t (*ch9141_Receive_fp)(char *pDataRx, uint16_t size, 
 typedef ch9141_ErrorStatus_t (*ch9141_Transmit_fp)(char const *pDataTx, uint16_t size);
 typedef void (*ch9141_Pin_Sleep_fp)(ch9141_PinState_t newState);
 typedef void (*ch9141_Pin_Mode_fp)(ch9141_PinState_t newState);
-typedef void (*ch9141_Delay_fp)(uint32_t ms);
 
 typedef enum ch9141_FuncState_e { CH9141_FUNC_STATE_DISABLE = 30, CH9141_FUNC_STATE_ENABLE } ch9141_FuncState_t;
 
@@ -108,7 +107,6 @@ typedef struct ch9141_s
         ch9141_Transmit_fp transmit;
         ch9141_Pin_Sleep_fp pinSleep;
         ch9141_Pin_Mode_fp pinMode;
-        ch9141_Delay_fp delay;
     } interface;
     char rxBuf[100];
     char txBuf[100];

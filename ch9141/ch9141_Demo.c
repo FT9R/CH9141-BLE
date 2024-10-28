@@ -65,5 +65,5 @@ void CH9141_Demo(void)
     while (CH9141_StatusGet(ble1) != CH9141_BLESTAT_CONNECTED) {}
     strncpy(bleResponse, CH9141_MACRemoteGet(ble1), ble1->responseLen);
 
-    CH9141_Disconnect(ble1);
+    // CH9141_Disconnect(ble1);
 }
