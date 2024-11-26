@@ -1,11 +1,11 @@
-# Description
+# CH9141 UART driver
 Platform-independent driver for CH9141 Bluetooth serial port transparent transmission chip with BLE4.2.
 
-# Notes
-1. Although CH9141 chip supports broadcast (advertising), master (host) and slave (device) modes, only slave mode is implemented by this driver at this time.
-2. Most of driver's functionality intended to be used at MCU's init stage when serial interface is free. After initialization serial interface can be used as usual to write to or read from remote BLE device. But any transmissions have to be stopped if driver is used after MCU's init stage to free serial interface for driver routines.
+## Notes
+* Although CH9141 chip supports broadcast (advertising), master (host) and slave (device) modes, only slave mode is implemented by this driver at this time.
+* Most of driver's functionality intended to be used at MCU's init stage when serial interface is free. After initialization serial interface can be used as usual to write to or read from remote BLE device. But any transmissions have to be stopped if driver is used after MCU's init stage to free serial interface for driver routines.
 
-# Quick start
+## Quick start
 * Mention the header:
 ```C
 #include "ch9141.h"
@@ -46,10 +46,10 @@ CH9141_Link(&ble1, CH9141_UARTx_Receive, CH9141_UARTx_Transmit, CH9141_Pin_Sleep
 CH9141_Init(&ble1, true);
 ```
 
-# Examples
+## Examples
 * [STM32](platform/STM32F405RGT6/Core/Src/main.c)
 
-# TODO
+## TODO
 1. Broadcast (advertising) mode with dependent functionality.
 2. Master (host) mode with dependent functionality.
 3. GPIO.
