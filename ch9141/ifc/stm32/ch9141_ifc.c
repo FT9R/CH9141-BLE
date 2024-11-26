@@ -1,4 +1,4 @@
-#include "CH9141_Interface.h"
+#include "ch9141_ifc.h"
 
 #define CH9141_MIN_DELAY  2
 #define CH9141_RX_TIMEOUT 2000

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "ch9141_Interface.h"
+#include "../ifc/stm32/ch9141_ifc.h"
 
 typedef ch9141_ErrorStatus_t (*ch9141_Receive_fp)(char *pDataRx, uint16_t size, uint16_t *rxLen);
 typedef ch9141_ErrorStatus_t (*ch9141_Transmit_fp)(char const *pDataTx, uint16_t size);

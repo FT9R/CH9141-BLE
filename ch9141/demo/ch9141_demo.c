@@ -1,4 +1,4 @@
-#include "ch9141_Demo.h"
+#include "ch9141_demo.h"
 
 static ch9141_t *ble1 = &(ch9141_t){0};
 static char paramSet[50] = {0};
