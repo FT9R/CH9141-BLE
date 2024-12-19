@@ -1,0 +1,15 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"files.associations": {
+			"ch9141_demo.h": "c",
+			"ch9141.h": "c",
+			"ch9141_interface.h": "c",
+			"ch9141_ifc.h": "c"
+		}
+	}
+}
