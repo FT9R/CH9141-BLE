@@ -34,9 +34,9 @@ typedef enum ch9141_Mode_e {
 } ch9141_Mode_t;
 
 typedef enum ch9141_SleepMode_e {
-    CH9141_SLEEPMODE_NONE,
-    CH9141_SLEEPMODE_LOW_ENERGY,
-    CH9141_SLEEPMODE_POWER_DOWN,
+    CH9141_SLEEPMODE_NONE, // Icc = 7.5mA
+    CH9141_SLEEPMODE_LOW_ENERGY, // Icc = 300uA, master cannot send serial data
+    CH9141_SLEEPMODE_POWER_DOWN, // Icc = 6uA
     CH9141_SLEEPMODE_UNDEFINED
 } ch9141_SleepMode_t;
 
