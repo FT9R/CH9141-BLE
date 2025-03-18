@@ -6,7 +6,8 @@ static void CH9141_Reset(ch9141_t *handle);
 static void CH9141_Reload(ch9141_t *handle);
 
 void CH9141_Link(ch9141_t *handle, ch9141_Receive_fp fpReceive, ch9141_Transmit_fp fpTransmit,
-                 ch9141_Pin_Sleep_fp fpPinSleep, ch9141_Pin_Mode_fp fpPinMode)
+                 ch9141_Pin_Delay_fp fpDelay, ch9141_Pin_Mode_fp fpPinMode, ch9141_Pin_Reset_fp fpPinReset,
+                 ch9141_Pin_Reload_fp fpPinReload, ch9141_Pin_Sleep_fp fpPinSleep)
 {
     if (handle == NULL)
         return;
@@ -18,7 +19,8 @@ void CH9141_Link(ch9141_t *handle, ch9141_Receive_fp fpReceive, ch9141_Transmit_
     /* Set operational state */
     handle->state = CH9141_STATE_LINK;
 
-    if (fpReceive == NULL || fpTransmit == NULL || fpPinSleep == NULL || fpPinMode == NULL)
+    // FIXME: handle both fpPinReset and fpPinReload properly
+    if (fpReceive == NULL || fpTransmit == NULL || fpDelay == NULL || fpPinMode == NULL || fpPinSleep == NULL)
     {
         handle->error = CH9141_ERR_ARGUMENT;
         return;
@@ -30,8 +32,11 @@ void CH9141_Link(ch9141_t *handle, ch9141_Receive_fp fpReceive, ch9141_Transmit_
     /* Link platform functions to the device */
     handle->interface.receive = fpReceive;
     handle->interface.transmit = fpTransmit;
-    handle->interface.pinSleep = fpPinSleep;
+    handle->interface.delay = fpDelay;
+    handle->interface.pinReset = fpPinReset;
     handle->interface.pinMode = fpPinMode;
+    handle->interface.pinReload = fpPinReload;
+    handle->interface.pinSleep = fpPinSleep;
 
     /* Set operational state */
     handle->state = CH9141_STATE_IDLE;
@@ -51,7 +56,7 @@ void CH9141_Init(ch9141_t *handle, bool factoryRestore)
 
     /* Exit from sleep mode */
     handle->interface.pinSleep(CH9141_PIN_STATE_SET);
-    CH9141_Delay(1000);
+    handle->interface.delay(100);
 
     /* Restore factory settings if requested */
     if (factoryRestore)
@@ -858,7 +863,7 @@ static void CH9141_CMD_Set(ch9141_t *handle, char const *cmd)
 
     /* AT mode */
     handle->interface.pinMode(CH9141_PIN_STATE_RESET);
-    CH9141_Delay(10);
+    handle->interface.delay(10);
 
     /* Clear RX buffer */
     memset(handle->rxBuf, '\0', sizeof(handle->rxBuf));
@@ -916,26 +921,54 @@ static void CH9141_Reset(ch9141_t *handle)
     if (handle == NULL)
         return;
 
-    /* Set the parameter */
-    CH9141_CMD_Set(handle, "AT+RESET");
-    if (handle->error != CH9141_ERR_NONE)
-        return;
-    CH9141_Delay(300);
+    if (handle->interface.pinReset == NULL)
+    {
+        /* Set the parameter */
+        CH9141_CMD_Set(handle, "AT+RESET");
+        if (handle->error != CH9141_ERR_NONE)
+            return;
+    }
+    else
+    {
+        handle->interface.pinReset(CH9141_PIN_STATE_RESET);
+        handle->interface.delay(100);
+        handle->interface.pinReset(CH9141_PIN_STATE_SET);
+    }
+
+    handle->interface.delay(300);
 }
 
 /**
  * @brief Internal function used to restore factory settings
  * @param handle Pointer to the device handle
+ * @note Device can be reloaded with two ways:
+ *
+ * 1. Through AT command
+ *
+ * 2. By pulling down `RELOAD/LED` pin for 2 sec after device is powered on
  */
 static void CH9141_Reload(ch9141_t *handle)
 {
     if (handle == NULL)
         return;
 
-    /* Set the parameter */
-    CH9141_CMD_Set(handle, "AT+RELOAD");
-    if (handle->error != CH9141_ERR_NONE)
-        return;
+    if (handle->interface.pinReload == NULL)
+    {
+        /* Set the parameter */
+        CH9141_CMD_Set(handle, "AT+RELOAD");
+        if (handle->error != CH9141_ERR_NONE)
+            return;
+    }
+    else
+    {
+        // FIXME: control pinReset here to NULL
+        handle->interface.pinReload(CH9141_PIN_STATE_RESET);
+        handle->interface.pinReset(CH9141_PIN_STATE_RESET);
+        handle->interface.delay(300);
+        handle->interface.pinReset(CH9141_PIN_STATE_SET);
+        handle->interface.delay(2500);
+        handle->interface.pinReload(CH9141_PIN_STATE_SET);
+    }
 
     /* Reset device to take effect */
     CH9141_Reset(handle);
