@@ -19,15 +19,20 @@ void CH9141_Link(ch9141_t *handle, ch9141_Receive_fp fpReceive, ch9141_Transmit_
     /* Set operational state */
     handle->state = CH9141_STATE_LINK;
 
-    // FIXME: handle both fpPinReset and fpPinReload properly
+    /* Check platform functions */
     if (fpReceive == NULL || fpTransmit == NULL || fpDelay == NULL || fpPinMode == NULL || fpPinSleep == NULL)
     {
-        handle->error = CH9141_ERR_ARGUMENT;
+        handle->error = CH9141_ERR_INTERFACE;
+        return;
+    }
+    if ((fpPinReload != NULL) && (fpPinReset == NULL))
+    {
+        handle->error = CH9141_ERR_INTERFACE;
         return;
     }
 
     /* Clear all interface fields */
-    memset(&handle->interface, '\0', sizeof(handle->interface));
+    memset(&handle->interface, 0, sizeof(handle->interface));
 
     /* Link platform functions to the device */
     handle->interface.receive = fpReceive;
@@ -862,6 +867,7 @@ static void CH9141_CMD_Set(ch9141_t *handle, char const *cmd)
     }
 
     /* AT mode */
+    handle->errorAT = CH9141_AT_ERR_NONE;
     handle->interface.pinMode(CH9141_PIN_STATE_RESET);
     handle->interface.delay(10);
 
@@ -931,11 +937,11 @@ static void CH9141_Reset(ch9141_t *handle)
     else
     {
         handle->interface.pinReset(CH9141_PIN_STATE_RESET);
-        handle->interface.delay(100);
+        handle->interface.delay(10);
         handle->interface.pinReset(CH9141_PIN_STATE_SET);
     }
 
-    handle->interface.delay(300);
+    handle->interface.delay(200);
 }
 
 /**
@@ -961,11 +967,17 @@ static void CH9141_Reload(ch9141_t *handle)
     }
     else
     {
-        // FIXME: control pinReset here to NULL
+        if (handle->interface.pinReset == NULL)
+        {
+            handle->error = CH9141_ERR_INTERFACE;
+            return;
+        }
+
         handle->interface.pinReload(CH9141_PIN_STATE_RESET);
-        handle->interface.pinReset(CH9141_PIN_STATE_RESET);
-        handle->interface.delay(300);
-        handle->interface.pinReset(CH9141_PIN_STATE_SET);
+        CH9141_Reset(handle);
+        if (handle->error != CH9141_ERR_NONE)
+            return;
+
         handle->interface.delay(2500);
         handle->interface.pinReload(CH9141_PIN_STATE_SET);
     }

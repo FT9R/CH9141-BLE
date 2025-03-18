@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* Custom data types */
 typedef enum ch9141_ErrorStatus_e { CH9141_ERROR_STATUS_SUCCESS = 10, CH9141_ERROR_STATUS_ERROR } ch9141_ErrorStatus_t;
 typedef enum ch9141_PinState_e { CH9141_PIN_STATE_RESET = 20, CH9141_PIN_STATE_SET } ch9141_PinState_t;
 typedef enum ch9141_FuncState_e { CH9141_FUNC_STATE_DISABLE = 30, CH9141_FUNC_STATE_ENABLE } ch9141_FuncState_t;
@@ -17,7 +18,8 @@ typedef enum ch9141_Error_e {
     CH9141_ERR_SERIAL_RX,
     CH9141_ERR_SERIAL_TX,
     CH9141_ERR_AT,
-    CH9141_ERR_RESPONSE
+    CH9141_ERR_RESPONSE,
+    CH9141_ERR_INTERFACE
 } ch9141_Error_t;
 
 typedef enum ch9141_AT_Error_e {
@@ -101,6 +103,7 @@ typedef enum ch9141_BLEStatus_e {
     CH9141_BLESTAT_ERROR
 } ch9141_BLEStatus_t;
 
+/* Platform functions pointers */
 /**
  * @brief The one of UARTx receive function templates
  * @param pDataRx pointer to the buffer where data will be saved
@@ -151,6 +154,7 @@ typedef void (*ch9141_Pin_Reload_fp)(ch9141_PinState_t newState);
  */
 typedef void (*ch9141_Pin_Sleep_fp)(ch9141_PinState_t newState);
 
+/* Device handle */
 typedef struct ch9141_s
 {
     struct
@@ -163,13 +167,13 @@ typedef struct ch9141_s
         ch9141_Pin_Reload_fp pinReload;
         ch9141_Pin_Sleep_fp pinSleep;
     } interface;
-    char rxBuf[100];
-    char txBuf[100];
+    char rxBuf[50];
+    char txBuf[50];
     uint16_t rxLen; // Indicates number of data available in reception buffer
-    uint8_t responseLen;
-    ch9141_State_t state;
+    uint8_t responseLen; // Indicates length of response message received by MCU
+    ch9141_State_t state; // Indicates current state of BLE IC
     ch9141_Error_t error; // Driver error codes
-    ch9141_AT_Error_t errorAT; // Device error codes, relevant if handle.error = CH9141_ERR_AT
+    ch9141_AT_Error_t errorAT; // Device error codes provided by manufacturer
 } ch9141_t;
 
 /**
@@ -177,22 +181,26 @@ typedef struct ch9141_s
  * @param handle pointer to the target device handle
  * @param fpReceive pointer to the platform serial interface receive function
  * @param fpTransmit pointer to the platform serial interface transmit function
- * @param fpDelay pointer to the platform delay function
+ * @param fpDelay pointer to the platform `Delay` function
  * @param fpPinMode pointer to the platform gpio pin `AT mode` set/reset function (CH9141 PIN6)
- * @param fpPinReset pointer to the platform gpio pin `Reset` set/reset function (CH9141 PIN16).
- // FIXME: add comment about reset pin
- * @param fpPinReload pointer to the platform gpio pin `Reload` set/reset function (CH9141 PIN23).
- * Force `null` to use reload through serial interface(Not relatable in some cases, e.g. wrong baudrate)
+ * @param fpPinReset pointer to the platform gpio pin `Reset` set/reset function (CH9141 PIN16)
+ * @param fpPinReload pointer to the platform gpio pin `Reload` set/reset function (CH9141 PIN23)
  * @param fpPinSleep pointer to the platform gpio pin `Sleep` set/reset function (CH9141 PIN24)
+ * @note Force `fpPinReload = NULL` to use reload through serial interface (Not relatable in some cases, e.g. wrong
+ * baudrate)
+ * @note If `fpPinReload != NULL` then provide also `fpPinReset != NULL`
  */
 void CH9141_Link(ch9141_t *handle, ch9141_Receive_fp fpReceive, ch9141_Transmit_fp fpTransmit,
                  ch9141_Pin_Delay_fp fpDelay, ch9141_Pin_Mode_fp fpPinMode, ch9141_Pin_Reset_fp fpPinReset,
                  ch9141_Pin_Reload_fp fpPinReload, ch9141_Pin_Sleep_fp fpPinSleep);
 
 /**
- * @brief Initializes the target device
+ * @brief Initializes/Reinitializes the target device
  * @param handle pointer to the target device handle
  * @param factoryRestore restore factory settings or not
+ * @note In case of communication break between MCU and BLE IC, reinitialization is only possible if `pinReset` and
+ * `pinReload` interface functions are provided. It is because UART parameters between devices dont match.
+ * @note Before reinitialization dont forget to force `handle.error = CH9141_ERR_NONE`
  */
 void CH9141_Init(ch9141_t *handle, bool factoryRestore);
 
@@ -211,6 +219,9 @@ char *CH9141_SerialGet(ch9141_t *handle);
  * @param stopBit target device stopBit (1 or 2)
  * @param parity target device parity (none, odd or even)
  * @param timeout [ms]. Target device timeout in transparent transmission mode
+ * @note Use this function with care, because it may break communication between MCU and BLE IC.
+ * @note In case of communication break reinitialize BLE IC with `CH9141_Init` or configure new UART parameters on the
+ * MCU side
  */
 void CH9141_SerialSet(ch9141_t *handle, uint32_t baudRate, uint8_t dataBit, uint8_t stopBit,
                       ch9141_SerialParity_t parity, uint16_t timeout);

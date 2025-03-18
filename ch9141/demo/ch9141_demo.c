@@ -25,25 +25,29 @@ void CH9141_Demo(void)
     if (ble1->error != CH9141_ERR_NONE)
         Error_Handler();
 
-    /* Actually, MCU's UART has baudrate == 115200 */
-    /* So setting BLE IC's baudrate to 9600 will break communications between MCU and BLE IC - its OK */
-    strcpy(paramSet, "9600,8,1,0,50");
-    CH9141_SerialSet(ble1, 9600, 8, 1, CH9141_SERIAL_PARITY_NONE, 50); // OK
-    strncpy(bleResponse, CH9141_SerialGet(ble1), ble1->responseLen); // Won't response here because wrong baudrate
-    if (strcmp(bleResponse, paramSet) != 0) // No response received
+    /* Actually, MCU's UART has baudrate == 115200, so setting BLE IC's baudrate to 9600
+     * will break communications between MCU and BLE IC. And it is OK, because here we will try to reinitialize BLE IC.
+     */
+    if (ble1->interface.pinReload != NULL)
     {
-        /* Reinitialize the device with factory restore option */
-        ble1->error = CH9141_ERR_NONE;
-        CH9141_Init(ble1, true);
-        if (ble1->error != CH9141_ERR_NONE)
-            Error_Handler();
+        strcpy(paramSet, "9600,8,1,0,50");
+        CH9141_SerialSet(ble1, 9600, 8, 1, CH9141_SERIAL_PARITY_NONE, 50); // OK
+        strncpy(bleResponse, CH9141_SerialGet(ble1), ble1->responseLen); // Won't response here because wrong baudrate
+        if (strcmp(bleResponse, paramSet) != 0) // No response received
+        {
+            /* Reinitialize the device with factory restore option */
+            ble1->error = CH9141_ERR_NONE; // Reset existing `CH9141_ERR_SERIAL_RX` error
+            CH9141_Init(ble1, true);
+            if (ble1->error != CH9141_ERR_NONE)
+                Error_Handler();
 
-        /* Set BLE IC's baudrate to match MCU's UART baudrate */
-        strcpy(paramSet, "115200,8,1,0,100");
-        CH9141_SerialSet(ble1, 115200, 8, 1, CH9141_SERIAL_PARITY_NONE, 100);
-        strncpy(bleResponse, CH9141_SerialGet(ble1), ble1->responseLen);
-        if (strcmp(bleResponse, paramSet) != 0)
-            Error_Handler();
+            /* Set BLE IC's baudrate to match MCU's UART baudrate */
+            strcpy(paramSet, "115200,8,1,0,100");
+            CH9141_SerialSet(ble1, 115200, 8, 1, CH9141_SERIAL_PARITY_NONE, 100);
+            strncpy(bleResponse, CH9141_SerialGet(ble1), ble1->responseLen);
+            if (strcmp(bleResponse, paramSet) != 0)
+                Error_Handler();
+        }
     }
 
     strcpy(paramSet, "Hello!!!");
