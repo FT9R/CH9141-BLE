@@ -50,54 +50,61 @@ void CH9141_Demo(void)
         }
     }
 
-    strcpy(paramSet, "Hello!!!");
-    CH9141_HelloSet(ble1, paramSet);
-    strncpy(bleResponse, CH9141_HelloGet(ble1), ble1->responseLen);
-    if (strcmp(bleResponse, paramSet) != 0)
-        Error_Handler();
+    // strcpy(paramSet, "Hello!!!");
+    // CH9141_HelloSet(ble1, paramSet);
+    // strncpy(bleResponse, CH9141_HelloGet(ble1), ble1->responseLen);
+    // if (strcmp(bleResponse, paramSet) != 0)
+    //     Error_Handler();
 
-    strcpy(paramSet, "DeviceName");
-    CH9141_DeviceNameSet(ble1, paramSet);
-    strncpy(bleResponse, CH9141_DeviceNameGet(ble1), ble1->responseLen);
-    if (strcmp(bleResponse, paramSet) != 0)
-        Error_Handler();
+    // strcpy(paramSet, "DeviceName");
+    // CH9141_DeviceNameSet(ble1, paramSet);
+    // strncpy(bleResponse, CH9141_DeviceNameGet(ble1), ble1->responseLen);
+    // if (strcmp(bleResponse, paramSet) != 0)
+    //     Error_Handler();
 
-    strcpy(paramSet, "ChipName");
-    CH9141_ChipNameSet(ble1, paramSet);
-    strncpy(bleResponse, CH9141_ChipNameGet(ble1), ble1->responseLen);
-    if (strcmp(bleResponse, paramSet) != 0)
-        Error_Handler();
+    // strcpy(paramSet, "ChipName");
+    // CH9141_ChipNameSet(ble1, paramSet);
+    // strncpy(bleResponse, CH9141_ChipNameGet(ble1), ble1->responseLen);
+    // if (strcmp(bleResponse, paramSet) != 0)
+    //     Error_Handler();
 
-    ch9141_SleepMode_t sleepMode = CH9141_SLEEPMODE_LOW_ENERGY;
-    CH9141_SleepSet(ble1, sleepMode);
-    if (CH9141_SleepGet(ble1) != sleepMode)
-        Error_Handler();
+    // ch9141_SleepMode_t sleepMode = CH9141_SLEEPMODE_LOW_ENERGY;
+    // CH9141_SleepSet(ble1, sleepMode);
+    // if (CH9141_SleepGet(ble1) != sleepMode)
+    //     Error_Handler();
 
-    ch9141_Power_t power = CH9141_POWER_3DB;
-    CH9141_PowerSet(ble1, power);
-    if (CH9141_PowerGet(ble1) != power)
-        Error_Handler();
+    // ch9141_Power_t power = CH9141_POWER_3DB;
+    // CH9141_PowerSet(ble1, power);
+    // if (CH9141_PowerGet(ble1) != power)
+    //     Error_Handler();
 
-    ch9141_Mode_t mode = CH9141_MODE_DEVICE;
+    ch9141_Mode_t mode = CH9141_MODE_HOST;
     CH9141_ModeSet(ble1, mode);
     if (CH9141_ModeGet(ble1) != mode)
         Error_Handler();
 
-    strcpy(paramSet, "123456");
-    CH9141_PasswordSet(ble1, paramSet, CH9141_FUNC_STATE_ENABLE);
-    strncpy(bleResponse, CH9141_PasswordGet(ble1), ble1->responseLen);
-    if (strcmp(bleResponse, paramSet) != 0)
-        Error_Handler();
+    CH9141_Connect(ble1, "EF:49:66:A7:14:54", "654321");
 
-    strcpy(paramSet, "05:DF:39:4C:99:B4");
-    CH9141_MACLocalSet(ble1, paramSet);
-    strncpy(bleResponse, CH9141_MACLocalGet(ble1), ble1->responseLen);
-    if (strcmp(bleResponse, paramSet) != 0)
-        Error_Handler();
+    // ch9141_Mode_t mode = CH9141_MODE_DEVICE;
+    // CH9141_ModeSet(ble1, mode);
+    // if (CH9141_ModeGet(ble1) != mode)
+    //     Error_Handler();
 
-    vcc = CH9141_VCCGet(ble1);
-    if (vcc < 2500)
-        Error_Handler();
+    // strcpy(paramSet, "123456");
+    // CH9141_PasswordSet(ble1, paramSet, CH9141_FUNC_STATE_DISABLE);
+    // strncpy(bleResponse, CH9141_PasswordGet(ble1), ble1->responseLen);
+    // if (strcmp(bleResponse, paramSet) != 0)
+    //     Error_Handler();
+
+    // strcpy(paramSet, "05:DF:39:4C:99:B4");
+    // CH9141_MACLocalSet(ble1, paramSet);
+    // strncpy(bleResponse, CH9141_MACLocalGet(ble1), ble1->responseLen);
+    // if (strcmp(bleResponse, paramSet) != 0)
+    //     Error_Handler();
+
+    // vcc = CH9141_VCCGet(ble1);
+    // if (vcc < 2500)
+    //     Error_Handler();
 
     while (CH9141_StatusGet(ble1) != CH9141_BLESTAT_CONNECTED) {}
     strncpy(bleResponse, CH9141_MACRemoteGet(ble1), ble1->responseLen);

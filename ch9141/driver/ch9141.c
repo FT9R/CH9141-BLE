@@ -149,6 +149,52 @@ void CH9141_SerialSet(ch9141_t *handle, uint32_t baudRate, uint8_t dataBit, uint
     handle->state = CH9141_STATE_IDLE;
 }
 
+void CH9141_Connect(ch9141_t *handle, char const *mac, char const *password)
+{
+    char cmd[40] = {0};
+
+    if (handle == NULL)
+        return;
+
+    /* Check any existing errors */
+    if (handle->error != CH9141_ERR_NONE)
+        return;
+
+    /* Set operational state */
+    handle->state = CH9141_STATE_CONNECT;
+
+    /* Check arguments */
+    if (mac == NULL)
+    {
+        handle->error = CH9141_ERR_ARGUMENT;
+        return;
+    }
+    if (strlen(mac) != 17)
+    {
+        handle->error = CH9141_ERR_ARGUMENT;
+        return;
+    }
+    if (password != NULL)
+    {
+        if (strlen(password) != 6)
+        {
+            handle->error = CH9141_ERR_ARGUMENT;
+            return;
+        }
+    }
+
+    /* Prepare the command */
+    sprintf(cmd, "AT+CONN=%s,%s", mac, password);
+
+    /* Set the parameter */
+    CH9141_CMD_Set(handle, cmd);
+    if (handle->error != CH9141_ERR_NONE)
+        return;
+
+    /* Set operational state */
+    handle->state = CH9141_STATE_IDLE;
+}
+
 void CH9141_Disconnect(ch9141_t *handle)
 {
     if (handle == NULL)
@@ -421,12 +467,16 @@ ch9141_SleepMode_t CH9141_SleepGet(ch9141_t *handle)
     /* This cmd does not match the regular response message pattern */
     /* Seek for the first digit in response message */
     while (!isdigit(*pResponse))
-        if (*(pResponse++) == '\0')
+    {
+        if ((*(pResponse) == '\r') || (*(pResponse) == '\0'))
         {
             /* Can't find any digit */
             handle->error = CH9141_ERR_RESPONSE;
+            
             return CH9141_SLEEPMODE_UNDEFINED;
         }
+        ++pResponse;
+    }
 
     /* Set operational state */
     handle->state = CH9141_STATE_IDLE;
@@ -631,6 +681,7 @@ void CH9141_PasswordSet(ch9141_t *handle, char const *passwordSet, ch9141_FuncSt
     /* Set operational state */
     handle->state = CH9141_STATE_PASSWORD_SET;
 
+    /* Check arguments */
     if (passwordSet == NULL)
     {
         handle->error = CH9141_ERR_ARGUMENT;
@@ -941,7 +992,7 @@ static void CH9141_Reset(ch9141_t *handle)
         handle->interface.pinReset(CH9141_PIN_STATE_SET);
     }
 
-    handle->interface.delay(200);
+    handle->interface.delay(300);
 }
 
 /**

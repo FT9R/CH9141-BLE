@@ -57,6 +57,7 @@ typedef enum ch9141_State_e {
     CH9141_STATE_INIT,
     CH9141_STATE_SERIAL_GET,
     CH9141_STATE_SERIAL_SET,
+    CH9141_STATE_CONNECT,
     CH9141_STATE_DISCONNECT,
     CH9141_STATE_HELLO_GET,
     CH9141_STATE_HELLO_SET,
@@ -225,6 +226,14 @@ char *CH9141_SerialGet(ch9141_t *handle);
  */
 void CH9141_SerialSet(ch9141_t *handle, uint32_t baudRate, uint8_t dataBit, uint8_t stopBit,
                       ch9141_SerialParity_t parity, uint16_t timeout);
+
+/**
+ * @brief Connects to the slave with provided mac address and password
+ * @param handle pointer to the target device handle
+ * @param mac BLE slave MAC address (format xx:xx:xx:xx:xx:xx) as a null-terminated string
+ * @param password BLE slave password (6 digit) as a null-terminated string
+ */
+void CH9141_Connect(ch9141_t *handle, char const *mac, char const *password);
 
 /**
  * @brief Disconnects the current connection
