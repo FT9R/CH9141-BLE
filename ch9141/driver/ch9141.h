@@ -231,7 +231,7 @@ void CH9141_SerialSet(ch9141_t *handle, uint32_t baudRate, uint8_t dataBit, uint
  * @brief Connects to the slave with provided mac address and password
  * @param handle pointer to the target device handle
  * @param mac BLE slave MAC address (format xx:xx:xx:xx:xx:xx) as a null-terminated string
- * @param password BLE slave password (6 digit) as a null-terminated string
+ * @param password BLE slave password (6 digit) as a null-terminated string. Pass `NULL` if no password is required
  */
 void CH9141_Connect(ch9141_t *handle, char const *mac, char const *password);
 
@@ -244,7 +244,7 @@ void CH9141_Disconnect(ch9141_t *handle);
 /**
  * @brief Gets welcome message from device
  * @param handle pointer to the target device handle
- * @return Welcome message as a null-terminated string
+ * @return Welcome message as a null-terminated string or `NULL` if no response received
  */
 char *CH9141_HelloGet(ch9141_t *handle);
 
@@ -258,7 +258,7 @@ void CH9141_HelloSet(ch9141_t *handle, char const *helloSet);
 /**
  * @brief Gets device name
  * @param handle pointer to the target device handle
- * @return Device name as a null-terminated string
+ * @return Device name as a null-terminated string or `NULL` if no response received
  */
 char *CH9141_DeviceNameGet(ch9141_t *handle);
 
@@ -272,7 +272,7 @@ void CH9141_DeviceNameSet(ch9141_t *handle, char const *nameSet);
 /**
  * @brief Gets chip name
  * @param handle pointer to the target device handle
- * @return chip name as a null-terminated string
+ * @return chip name as a null-terminated string or `NULL` if no response received
  */
 char *CH9141_ChipNameGet(ch9141_t *handle);
 
@@ -335,7 +335,7 @@ void CH9141_ModeSet(ch9141_t *handle, ch9141_Mode_t mode);
 /**
  * @brief Gets device slave password
  * @param handle pointer to the target device handle
- * @return Device slave password as a null-terminated string
+ * @return Device slave password as a null-terminated string or `NULL` if no response received
  */
 char *CH9141_PasswordGet(ch9141_t *handle);
 
@@ -357,7 +357,7 @@ ch9141_BLEStatus_t CH9141_StatusGet(ch9141_t *handle);
 /**
  * @brief Gets device BLE MAC address
  * @param handle pointer to the target device handle
- * @return Device BLE MAC address as a null-terminated string
+ * @return Device BLE MAC address as a null-terminated string or `NULL` if no response received
  */
 char *CH9141_MACLocalGet(ch9141_t *handle);
 
@@ -371,13 +371,13 @@ void CH9141_MACLocalSet(ch9141_t *handle, char const *mac);
 /**
  * @brief Gets connected device BLE MAC address
  * @param handle pointer to the target device handle
- * @return Connected device BLE MAC address as a null-terminated string
+ * @return Connected device BLE MAC address as a null-terminated string or `NULL` if no response received
  */
 char *CH9141_MACRemoteGet(ch9141_t *handle);
 
 /**
  * @brief Gets supply voltage of the chip
  * @param handle pointer to the target device handle
- * @return [mV]. Supply voltage of the chip
+ * @return Supply voltage of the chip [mV] or 0 if no response received
  */
 uint16_t CH9141_VCCGet(ch9141_t *handle);
