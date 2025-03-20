@@ -844,11 +844,11 @@ char *CH9141_MACRemoteGet(ch9141_t *handle)
 uint16_t CH9141_VCCGet(ch9141_t *handle)
 {
     if (handle == NULL)
-        return 0;
+        return UINT16_MAX;
 
     /* Check any existing errors */
     if (handle->error != CH9141_ERR_NONE)
-        return 0;
+        return UINT16_MAX;
 
     /* Set operational state */
     handle->state = CH9141_STATE_VCC_GET;
@@ -856,7 +856,30 @@ uint16_t CH9141_VCCGet(ch9141_t *handle)
     /* Request the parameter */
     CMD_Get(handle, "AT+BAT?");
     if (handle->error != CH9141_ERR_NONE)
-        return 0;
+        return UINT16_MAX;
+
+    /* Set operational state */
+    handle->state = CH9141_STATE_IDLE;
+
+    return atoi(handle->rxBuf);
+}
+
+uint16_t CH9141_ADCGet(ch9141_t *handle)
+{
+    if (handle == NULL)
+        return UINT16_MAX;
+
+    /* Check any existing errors */
+    if (handle->error != CH9141_ERR_NONE)
+        return UINT16_MAX;
+
+    /* Set operational state */
+    handle->state = CH9141_STATE_ADC_GET;
+
+    /* Request the parameter */
+    CMD_Get(handle, "AT+ADC?");
+    if (handle->error != CH9141_ERR_NONE)
+        return UINT16_MAX;
 
     /* Set operational state */
     handle->state = CH9141_STATE_IDLE;

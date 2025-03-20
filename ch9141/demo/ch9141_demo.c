@@ -14,6 +14,7 @@ static ch9141_t *ble1 = &(ch9141_t) {0};
 static char paramSet[50] = {0};
 static char bleResponse[50] = {0};
 static uint16_t vcc;
+static uint16_t adc;
 static ch9141_Interface_t *interface = &(ch9141_Interface_t) {.delay = CH9141_Delay,
                                                               .pinMode = CH9141_Pin_Mode1,
                                                               .pinReload = CH9141_Pin_Reload1,
@@ -111,7 +112,11 @@ void CH9141_Demo(void)
         Error_Handler();
 
     vcc = CH9141_VCCGet(ble1);
-    if (vcc < 2500)
+    if (vcc == UINT16_MAX)
+        Error_Handler();
+
+    adc = CH9141_ADCGet(ble1);
+    if (adc == UINT16_MAX)
         Error_Handler();
 
     while (CH9141_StatusGet(ble1) != CH9141_BLESTAT_CONNECTED)

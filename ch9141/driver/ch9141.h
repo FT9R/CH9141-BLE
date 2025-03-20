@@ -78,7 +78,8 @@ typedef enum ch9141_State_e {
     CH9141_STATE_MAC_LOCAL_GET,
     CH9141_STATE_MAC_LOCAL_SET,
     CH9141_STATE_MAC_REMOTE_GET,
-    CH9141_STATE_VCC_GET
+    CH9141_STATE_VCC_GET,
+    CH9141_STATE_ADC_GET
 } ch9141_State_t;
 
 typedef enum ch9141_Power_e {
@@ -375,6 +376,13 @@ char *CH9141_MACRemoteGet(ch9141_t *handle);
 /**
  * @brief Gets supply voltage of the chip
  * @param handle pointer to the target device handle
- * @return Supply voltage of the chip [mV] or 0 if no response received
+ * @return Supply voltage of the chip [mV] or UINT16_MAX if no response received
  */
 uint16_t CH9141_VCCGet(ch9141_t *handle);
+
+/**
+ * @brief Gets ADC value(0-4095) of the chip ADC pin (CH9141 PIN7)
+ * @param handle pointer to the target device handle
+ * @return ADC value of the chip ADC pin or UINT16_MAX if no response received
+ */
+uint16_t CH9141_ADCGet(ch9141_t *handle);
