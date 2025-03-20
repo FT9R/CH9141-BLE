@@ -6,7 +6,7 @@ Platform-independent driver for CH9141 Bluetooth serial port transparent transmi
 
 ## Features
 * Platform-independent
-* Only 2 files: header and source
+* Only 2 files can be used: `ch9141.c` and `ch9141.h` (if platform functions exist in user files)
 * Can be used without any additional pins, except for UART tx and rx pins
 
 ## Quick start
