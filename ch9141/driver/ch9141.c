@@ -1,9 +1,12 @@
 #include "ch9141.h"
 
-static void CH9141_CMD_Get(ch9141_t *handle, char const *cmd);
-static void CH9141_CMD_Set(ch9141_t *handle, char const *cmd);
-static void CH9141_Reset(ch9141_t *handle);
-static void CH9141_Reload(ch9141_t *handle);
+typedef enum { MODE_AT, MODE_TRANSPARENT } mode_t;
+
+static void ModeSwitch(ch9141_t *handle, mode_t mode);
+static void CMD_Get(ch9141_t *handle, char const *cmd);
+static void CMD_Set(ch9141_t *handle, char const *cmd);
+static void Reset(ch9141_t *handle);
+static void Reload(ch9141_t *handle);
 
 void CH9141_Link(ch9141_t *handle, ch9141_Receive_fp fpReceive, ch9141_Transmit_fp fpTransmit,
                  ch9141_Pin_Delay_fp fpDelay, ch9141_Pin_Mode_fp fpPinMode, ch9141_Pin_Reset_fp fpPinReset,
@@ -20,7 +23,7 @@ void CH9141_Link(ch9141_t *handle, ch9141_Receive_fp fpReceive, ch9141_Transmit_
     handle->state = CH9141_STATE_LINK;
 
     /* Check platform functions */
-    if (fpReceive == NULL || fpTransmit == NULL || fpDelay == NULL || fpPinMode == NULL || fpPinSleep == NULL)
+    if (fpReceive == NULL || fpTransmit == NULL || fpDelay == NULL || fpPinSleep == NULL)
     {
         handle->error = CH9141_ERR_INTERFACE;
         return;
@@ -65,7 +68,7 @@ void CH9141_Init(ch9141_t *handle, bool factoryRestore)
 
     /* Restore factory settings if requested */
     if (factoryRestore)
-        CH9141_Reload(handle);
+        Reload(handle);
     if (handle->error != CH9141_ERR_NONE)
         return;
 
@@ -86,7 +89,7 @@ char *CH9141_SerialGet(ch9141_t *handle)
     handle->state = CH9141_STATE_SERIAL_GET;
 
     /* Request the parameter */
-    CH9141_CMD_Get(handle, "AT+UART?");
+    CMD_Get(handle, "AT+UART?");
     if (handle->error != CH9141_ERR_NONE)
         return NULL;
 
@@ -133,15 +136,15 @@ void CH9141_SerialSet(ch9141_t *handle, uint32_t baudRate, uint8_t dataBit, uint
     }
 
     /* Prepare the command */
-    sprintf(cmd, "AT+UART=%u,%u,%u,%u,%u", baudRate, dataBit, stopBit, parity, timeout);
+    snprintf(cmd, sizeof(cmd), "AT+UART=%u,%u,%u,%u,%u", baudRate, dataBit, stopBit, parity, timeout);
 
     /* Set the parameter */
-    CH9141_CMD_Set(handle, cmd);
+    CMD_Set(handle, cmd);
     if (handle->error != CH9141_ERR_NONE)
         return;
 
     /* Reset device to take effect */
-    CH9141_Reset(handle);
+    Reset(handle);
     if (handle->error != CH9141_ERR_NONE)
         return;
 
@@ -184,10 +187,10 @@ void CH9141_Connect(ch9141_t *handle, char const *mac, char const *password)
     }
 
     /* Prepare the command */
-    sprintf(cmd, "AT+CONN=%s,%s", mac, password);
+    snprintf(cmd, sizeof(cmd), "AT+CONN=%s,%s", mac, password);
 
     /* Set the parameter */
-    CH9141_CMD_Set(handle, cmd);
+    CMD_Set(handle, cmd);
     if (handle->error != CH9141_ERR_NONE)
         return;
 
@@ -208,7 +211,7 @@ void CH9141_Disconnect(ch9141_t *handle)
     handle->state = CH9141_STATE_DISCONNECT;
 
     /* Set the parameter */
-    CH9141_CMD_Set(handle, "AT+DISCONN");
+    CMD_Set(handle, "AT+DISCONN");
     if (handle->error != CH9141_ERR_NONE)
         return;
 
@@ -229,7 +232,7 @@ char *CH9141_HelloGet(ch9141_t *handle)
     handle->state = CH9141_STATE_HELLO_GET;
 
     /* Request the parameter */
-    CH9141_CMD_Get(handle, "AT+HELLO?");
+    CMD_Get(handle, "AT+HELLO?");
     if (handle->error != CH9141_ERR_NONE)
         return NULL;
 
@@ -265,16 +268,15 @@ void CH9141_HelloSet(ch9141_t *handle, char const *helloSet)
     }
 
     /* Prepare the command */
-    strcpy(cmd, "AT+HELLO=");
-    strcat(cmd, helloSet);
+    snprintf(cmd, sizeof(cmd), "AT+HELLO=%s", helloSet);
 
     /* Set the parameter */
-    CH9141_CMD_Set(handle, cmd);
+    CMD_Set(handle, cmd);
     if (handle->error != CH9141_ERR_NONE)
         return;
 
     /* Reset device to take effect */
-    CH9141_Reset(handle);
+    Reset(handle);
     if (handle->error != CH9141_ERR_NONE)
         return;
 
@@ -295,7 +297,7 @@ char *CH9141_DeviceNameGet(ch9141_t *handle)
     handle->state = CH9141_STATE_DEVICENAME_GET;
 
     /* Request the parameter */
-    CH9141_CMD_Get(handle, "AT+PNAME?");
+    CMD_Get(handle, "AT+PNAME?");
     if (handle->error != CH9141_ERR_NONE)
         return NULL;
 
@@ -331,16 +333,15 @@ void CH9141_DeviceNameSet(ch9141_t *handle, char const *nameSet)
     }
 
     /* Prepare the command */
-    strcpy(cmd, "AT+PNAME=");
-    strcat(cmd, nameSet);
+    snprintf(cmd, sizeof(cmd), "AT+PNAME=%s", nameSet);
 
     /* Set the parameter */
-    CH9141_CMD_Set(handle, cmd);
+    CMD_Set(handle, cmd);
     if (handle->error != CH9141_ERR_NONE)
         return;
 
     /* Reset device to take effect */
-    CH9141_Reset(handle);
+    Reset(handle);
     if (handle->error != CH9141_ERR_NONE)
         return;
 
@@ -361,7 +362,7 @@ char *CH9141_ChipNameGet(ch9141_t *handle)
     handle->state = CH9141_STATE_CHIPNAME_GET;
 
     /* Request the parameter */
-    CH9141_CMD_Get(handle, "AT+NAME?");
+    CMD_Get(handle, "AT+NAME?");
     if (handle->error != CH9141_ERR_NONE)
         return NULL;
 
@@ -397,16 +398,15 @@ void CH9141_ChipNameSet(ch9141_t *handle, char const *nameSet)
     }
 
     /* Prepare the command */
-    strcpy(cmd, "AT+NAME=");
-    strcat(cmd, nameSet);
+    snprintf(cmd, sizeof(cmd), "AT+NAME=%s", nameSet);
 
     /* Set the parameter */
-    CH9141_CMD_Set(handle, cmd);
+    CMD_Set(handle, cmd);
     if (handle->error != CH9141_ERR_NONE)
         return;
 
     /* Reset device to take effect */
-    CH9141_Reset(handle);
+    Reset(handle);
     if (handle->error != CH9141_ERR_NONE)
         return;
 
@@ -460,7 +460,7 @@ ch9141_SleepMode_t CH9141_SleepGet(ch9141_t *handle)
     handle->state = CH9141_STATE_SLEEP_GET;
 
     /* Request the parameter */
-    CH9141_CMD_Get(handle, "AT+SLEEP?");
+    CMD_Get(handle, "AT+SLEEP?");
     if (handle->error != CH9141_ERR_NONE)
         return CH9141_SLEEPMODE_UNDEFINED;
 
@@ -472,7 +472,7 @@ ch9141_SleepMode_t CH9141_SleepGet(ch9141_t *handle)
         {
             /* Can't find any digit */
             handle->error = CH9141_ERR_RESPONSE;
-            
+
             return CH9141_SLEEPMODE_UNDEFINED;
         }
         ++pResponse;
@@ -502,15 +502,15 @@ void CH9141_SleepSet(ch9141_t *handle, ch9141_SleepMode_t sleepMode)
         return;
 
     /* Prepare the command */
-    sprintf(cmd, "AT+SLEEP=%u", sleepMode);
+    snprintf(cmd, sizeof(cmd), "AT+SLEEP=%u", sleepMode);
 
     /* Set the parameter */
-    CH9141_CMD_Set(handle, cmd);
+    CMD_Set(handle, cmd);
     if (handle->error != CH9141_ERR_NONE)
         return;
 
     /* Reset device to take effect */
-    CH9141_Reset(handle);
+    Reset(handle);
     if (handle->error != CH9141_ERR_NONE)
         return;
 
@@ -533,7 +533,7 @@ ch9141_Power_t CH9141_PowerGet(ch9141_t *handle)
     handle->state = CH9141_STATE_POWER_GET;
 
     /* Request the parameter */
-    CH9141_CMD_Get(handle, "AT+TPL?");
+    CMD_Get(handle, "AT+TPL?");
     if (handle->error != CH9141_ERR_NONE)
         return CH9141_POWER_UNDEFINED;
 
@@ -571,15 +571,15 @@ void CH9141_PowerSet(ch9141_t *handle, ch9141_Power_t power)
         return;
 
     /* Prepare the command */
-    sprintf(cmd, "AT+TPL=%u", power);
+    snprintf(cmd, sizeof(cmd), "AT+TPL=%u", power);
 
     /* Set the parameter */
-    CH9141_CMD_Set(handle, cmd);
+    CMD_Set(handle, cmd);
     if (handle->error != CH9141_ERR_NONE)
         return;
 
     /* Reset device to take effect */
-    CH9141_Reset(handle);
+    Reset(handle);
     if (handle->error != CH9141_ERR_NONE)
         return;
 
@@ -600,7 +600,7 @@ ch9141_Mode_t CH9141_ModeGet(ch9141_t *handle)
     handle->state = CH9141_STATE_MODE_GET;
 
     /* Request the parameter */
-    CH9141_CMD_Get(handle, "AT+BLEMODE?");
+    CMD_Get(handle, "AT+BLEMODE?");
     if (handle->error != CH9141_ERR_NONE)
         return CH9141_MODE_UNDEFINED;
 
@@ -628,15 +628,15 @@ void CH9141_ModeSet(ch9141_t *handle, ch9141_Mode_t mode)
         return;
 
     /* Prepare the command */
-    sprintf(cmd, "AT+BLEMODE=%u", mode);
+    snprintf(cmd, sizeof(cmd), "AT+BLEMODE=%u", mode);
 
     /* Set the parameter */
-    CH9141_CMD_Set(handle, cmd);
+    CMD_Set(handle, cmd);
     if (handle->error != CH9141_ERR_NONE)
         return;
 
     /* Reset device to take effect */
-    CH9141_Reset(handle);
+    Reset(handle);
     if (handle->error != CH9141_ERR_NONE)
         return;
 
@@ -657,7 +657,7 @@ char *CH9141_PasswordGet(ch9141_t *handle)
     handle->state = CH9141_STATE_PASSWORD_GET;
 
     /* Request the parameter */
-    CH9141_CMD_Get(handle, "AT+PASS?");
+    CMD_Get(handle, "AT+PASS?");
     if (handle->error != CH9141_ERR_NONE)
         return NULL;
 
@@ -694,11 +694,10 @@ void CH9141_PasswordSet(ch9141_t *handle, char const *passwordSet, ch9141_FuncSt
     }
 
     /* Prepare the command */
-    strcpy(cmd, "AT+PASS=");
-    strcat(cmd, passwordSet);
+    snprintf(cmd, sizeof(cmd), "AT+PASS=%s", passwordSet);
 
     /* Update device password */
-    CH9141_CMD_Set(handle, cmd);
+    CMD_Set(handle, cmd);
     if (handle->error != CH9141_ERR_NONE)
         return;
 
@@ -706,11 +705,11 @@ void CH9141_PasswordSet(ch9141_t *handle, char const *passwordSet, ch9141_FuncSt
     switch (funcState)
     {
     case CH9141_FUNC_STATE_DISABLE:
-        CH9141_CMD_Set(handle, "AT+PASEN=OFF");
+        CMD_Set(handle, "AT+PASEN=OFF");
         break;
 
     case CH9141_FUNC_STATE_ENABLE:
-        CH9141_CMD_Set(handle, "AT+PASEN=ON");
+        CMD_Set(handle, "AT+PASEN=ON");
         break;
 
     default:
@@ -721,7 +720,7 @@ void CH9141_PasswordSet(ch9141_t *handle, char const *passwordSet, ch9141_FuncSt
         return;
 
     /* Reset device to take effect */
-    CH9141_Reset(handle);
+    Reset(handle);
     if (handle->error != CH9141_ERR_NONE)
         return;
 
@@ -742,7 +741,7 @@ ch9141_BLEStatus_t CH9141_StatusGet(ch9141_t *handle)
     handle->state = CH9141_STATE_STATUS_GET;
 
     /* Request the parameter */
-    CH9141_CMD_Get(handle, "AT+BLESTA?");
+    CMD_Get(handle, "AT+BLESTA?");
     if (handle->error != CH9141_ERR_NONE)
         return CH9141_BLESTAT_UNDEFINED;
 
@@ -765,7 +764,7 @@ char *CH9141_MACLocalGet(ch9141_t *handle)
     handle->state = CH9141_STATE_MAC_LOCAL_GET;
 
     /* Request the parameter */
-    CH9141_CMD_Get(handle, "AT+MAC?");
+    CMD_Get(handle, "AT+MAC?");
     if (handle->error != CH9141_ERR_NONE)
         return NULL;
 
@@ -801,16 +800,15 @@ void CH9141_MACLocalSet(ch9141_t *handle, char const *mac)
     }
 
     /* Prepare the command */
-    strcpy(cmd, "AT+MAC=");
-    strcat(cmd, mac);
+    snprintf(cmd, sizeof(cmd), "AT+MAC=%s", mac);
 
     /* Set the parameter */
-    CH9141_CMD_Set(handle, cmd);
+    CMD_Set(handle, cmd);
     if (handle->error != CH9141_ERR_NONE)
         return;
 
     /* Reset device to take effect */
-    CH9141_Reset(handle);
+    Reset(handle);
     if (handle->error != CH9141_ERR_NONE)
         return;
 
@@ -831,7 +829,7 @@ char *CH9141_MACRemoteGet(ch9141_t *handle)
     handle->state = CH9141_STATE_MAC_REMOTE_GET;
 
     /* Request the parameter */
-    CH9141_CMD_Get(handle, "AT+CCADD?");
+    CMD_Get(handle, "AT+CCADD?");
     if (handle->error != CH9141_ERR_NONE)
         return NULL;
 
@@ -854,7 +852,7 @@ uint16_t CH9141_VCCGet(ch9141_t *handle)
     handle->state = CH9141_STATE_VCC_GET;
 
     /* Request the parameter */
-    CH9141_CMD_Get(handle, "AT+BAT?");
+    CMD_Get(handle, "AT+BAT?");
     if (handle->error != CH9141_ERR_NONE)
         return 0;
 
@@ -869,11 +867,65 @@ uint16_t CH9141_VCCGet(ch9141_t *handle)
  */
 
 /**
+ * @brief Internal function used to switch between AT and transparent modes
+ * @param handle pointer to the device handle
+ * @param mode mode to switch to
+ */
+static void ModeSwitch(ch9141_t *handle, mode_t mode)
+{
+    if (handle == NULL)
+        return;
+
+    /* Check any existing errors */
+    if (handle->error != CH9141_ERR_NONE)
+        return;
+
+    switch (mode)
+    {
+    case MODE_AT:
+        handle->errorAT = CH9141_AT_ERR_NONE;
+        if (handle->interface.pinMode != NULL)
+            /* Hardware AT mode enter */
+            handle->interface.pinMode(CH9141_PIN_STATE_RESET);
+        else
+        {
+            /* Software AT mode enter */
+            snprintf(handle->txBuf, sizeof(handle->txBuf), "AT...\r\n");
+            if (handle->interface.transmit(handle->txBuf, strlen(handle->txBuf)) != CH9141_ERROR_STATUS_SUCCESS)
+            {
+                handle->error = CH9141_ERR_SERIAL_TX;
+                return;
+            }
+        }
+        break;
+    case MODE_TRANSPARENT:
+        if (handle->interface.pinMode != NULL)
+            /* Hardware transparent mode enter */
+            handle->interface.pinMode(CH9141_PIN_STATE_SET);
+        else
+        {
+            /* Software transparent mode enter */
+            snprintf(handle->txBuf, sizeof(handle->txBuf), "AT+EXIT\r\n");
+            if (handle->interface.transmit(handle->txBuf, strlen(handle->txBuf)) != CH9141_ERROR_STATUS_SUCCESS)
+            {
+                handle->error = CH9141_ERR_SERIAL_TX;
+                return;
+            }
+        }
+        break;
+
+    default:
+        break;
+    }
+    handle->interface.delay(10);
+}
+
+/**
  * @brief Internal function used to get any device parameter represented as string
- * @param handle Pointer to the device handle
+ * @param handle pointer to the device handle
  * @param cmd AT command to get the parameter. Should be null-terminated string
  */
-static void CH9141_CMD_Get(ch9141_t *handle, char const *cmd)
+static void CMD_Get(ch9141_t *handle, char const *cmd)
 {
     if (handle == NULL)
         return;
@@ -883,8 +935,12 @@ static void CH9141_CMD_Get(ch9141_t *handle, char const *cmd)
         return;
     }
 
+    /* Check any existing errors */
+    if (handle->error != CH9141_ERR_NONE)
+        return;
+
     /* Send the request */
-    CH9141_CMD_Set(handle, cmd);
+    CMD_Set(handle, cmd);
     if (handle->error != CH9141_ERR_NONE)
         return;
 
@@ -901,10 +957,10 @@ static void CH9141_CMD_Get(ch9141_t *handle, char const *cmd)
 
 /**
  * @brief Internal function used to set any device parameter
- * @param handle Pointer to the device handle
+ * @param handle pointer to the device handle
  * @param cmd AT command to set the parameter. Should be null-terminated string
  */
-static void CH9141_CMD_Set(ch9141_t *handle, char const *cmd)
+static void CMD_Set(ch9141_t *handle, char const *cmd)
 {
     char const *errorResponseTemplate = "\r\nERR:";
     char *pResponse = handle->rxBuf;
@@ -917,23 +973,24 @@ static void CH9141_CMD_Set(ch9141_t *handle, char const *cmd)
         return;
     }
 
-    /* AT mode */
-    handle->errorAT = CH9141_AT_ERR_NONE;
-    handle->interface.pinMode(CH9141_PIN_STATE_RESET);
-    handle->interface.delay(10);
+    /* Check any existing errors */
+    if (handle->error != CH9141_ERR_NONE)
+        return;
+
+    ModeSwitch(handle, MODE_AT);
+    if (handle->error != CH9141_ERR_NONE)
+        return;
 
     /* Clear RX buffer */
     memset(handle->rxBuf, '\0', sizeof(handle->rxBuf));
 
-    /* Add trailing symbols */
-    strcpy(handle->txBuf, cmd);
-    strcat(handle->txBuf, "\r\n");
+    /* Add trailing symbols to message and pass to the tx buffer */
+    snprintf(handle->txBuf, sizeof(handle->txBuf), "%s\r\n", cmd);
 
     /* Send AT command */
     if (handle->interface.transmit(handle->txBuf, strlen(handle->txBuf)) != CH9141_ERROR_STATUS_SUCCESS)
     {
         handle->error = CH9141_ERR_SERIAL_TX;
-        handle->interface.pinMode(CH9141_PIN_STATE_SET);
         return;
     }
 
@@ -941,7 +998,6 @@ static void CH9141_CMD_Set(ch9141_t *handle, char const *cmd)
     if (handle->interface.receive(handle->rxBuf, sizeof(handle->rxBuf), &handle->rxLen) != CH9141_ERROR_STATUS_SUCCESS)
     {
         handle->error = CH9141_ERR_SERIAL_RX;
-        handle->interface.pinMode(CH9141_PIN_STATE_SET);
         return;
     }
 
@@ -954,34 +1010,35 @@ static void CH9141_CMD_Set(ch9141_t *handle, char const *cmd)
             {
                 /* Can't find any digit */
                 handle->error = CH9141_ERR_RESPONSE;
-                handle->interface.pinMode(CH9141_PIN_STATE_SET);
                 return;
             }
 
         /* Convert msg->string->integer and fill the field within handle */
         handle->error = CH9141_ERR_AT;
         handle->errorAT = (ch9141_AT_Error_t) atoi(strtok(pResponse, "\r"));
-        handle->interface.pinMode(CH9141_PIN_STATE_SET);
         return;
     }
 
-    /* Transparent mode */
-    handle->interface.pinMode(CH9141_PIN_STATE_SET);
+    ModeSwitch(handle, MODE_TRANSPARENT);
 }
 
 /**
  * @brief Internal function used to reset the device after any settting command
- * @param handle Pointer to the device handle
+ * @param handle pointer to the device handle
  */
-static void CH9141_Reset(ch9141_t *handle)
+static void Reset(ch9141_t *handle)
 {
     if (handle == NULL)
+        return;
+
+    /* Check any existing errors */
+    if (handle->error != CH9141_ERR_NONE)
         return;
 
     if (handle->interface.pinReset == NULL)
     {
         /* Set the parameter */
-        CH9141_CMD_Set(handle, "AT+RESET");
+        CMD_Set(handle, "AT+RESET");
         if (handle->error != CH9141_ERR_NONE)
             return;
     }
@@ -997,22 +1054,26 @@ static void CH9141_Reset(ch9141_t *handle)
 
 /**
  * @brief Internal function used to restore factory settings
- * @param handle Pointer to the device handle
+ * @param handle pointer to the device handle
  * @note Device can be reloaded with two ways:
  *
  * 1. Through AT command
  *
  * 2. By pulling down `RELOAD/LED` pin for 2 sec after device is powered on
  */
-static void CH9141_Reload(ch9141_t *handle)
+static void Reload(ch9141_t *handle)
 {
     if (handle == NULL)
+        return;
+
+    /* Check any existing errors */
+    if (handle->error != CH9141_ERR_NONE)
         return;
 
     if (handle->interface.pinReload == NULL)
     {
         /* Set the parameter */
-        CH9141_CMD_Set(handle, "AT+RELOAD");
+        CMD_Set(handle, "AT+RELOAD");
         if (handle->error != CH9141_ERR_NONE)
             return;
     }
@@ -1025,7 +1086,7 @@ static void CH9141_Reload(ch9141_t *handle)
         }
 
         handle->interface.pinReload(CH9141_PIN_STATE_RESET);
-        CH9141_Reset(handle);
+        Reset(handle);
         if (handle->error != CH9141_ERR_NONE)
             return;
 
@@ -1034,7 +1095,7 @@ static void CH9141_Reload(ch9141_t *handle)
     }
 
     /* Reset device to take effect */
-    CH9141_Reset(handle);
+    Reset(handle);
     if (handle->error != CH9141_ERR_NONE)
         return;
 }
