@@ -155,19 +155,20 @@ typedef void (*ch9141_Pin_Reload_fp)(ch9141_PinState_t newState);
  */
 typedef void (*ch9141_Pin_Sleep_fp)(ch9141_PinState_t newState);
 
+typedef struct
+{
+    ch9141_Receive_fp receive; // Pointer to the platform serial interface receive function
+    ch9141_Transmit_fp transmit; // Pointer to the platform serial interface transmit function
+    ch9141_Pin_Delay_fp delay; // Pointer to the platform `Delay` function
+    ch9141_Pin_Mode_fp pinMode; // Pointer to the platform gpio pin `AT mode` set/reset function (CH9141 PIN6)
+    ch9141_Pin_Reset_fp pinReset; // Pointer to the platform gpio pin `Reset` set/reset function (CH9141 PIN16)
+    ch9141_Pin_Reload_fp pinReload; // Pointer to the platform gpio pin `Reload` set/reset function (CH9141 PIN23)
+    ch9141_Pin_Sleep_fp pinSleep; // Pointer to the platform gpio pin `Sleep` set/reset function (CH9141 PIN24)
+} ch9141_Interface_t;
+
 /* Device handle */
 typedef struct ch9141_s
 {
-    struct
-    {
-        ch9141_Receive_fp receive;
-        ch9141_Transmit_fp transmit;
-        ch9141_Pin_Delay_fp delay;
-        ch9141_Pin_Mode_fp pinMode;
-        ch9141_Pin_Reset_fp pinReset;
-        ch9141_Pin_Reload_fp pinReload;
-        ch9141_Pin_Sleep_fp pinSleep;
-    } interface;
     char rxBuf[50];
     char txBuf[50];
     uint16_t rxLen; // Indicates number of data available in reception buffer
@@ -175,27 +176,20 @@ typedef struct ch9141_s
     ch9141_State_t state; // Indicates current state of BLE IC
     ch9141_Error_t error; // Driver error codes
     ch9141_AT_Error_t errorAT; // Device error codes provided by manufacturer
+    ch9141_Interface_t *interface; // Pointer to the platform functions structure
 } ch9141_t;
 
 /**
  * @brief Links user defined platform functions to the target device
  * @param handle pointer to the target device handle
- * @param fpReceive pointer to the platform serial interface receive function
- * @param fpTransmit pointer to the platform serial interface transmit function
- * @param fpDelay pointer to the platform `Delay` function
- * @param fpPinMode pointer to the platform gpio pin `AT mode` set/reset function (CH9141 PIN6)
- * @param fpPinReset pointer to the platform gpio pin `Reset` set/reset function (CH9141 PIN16)
- * @param fpPinReload pointer to the platform gpio pin `Reload` set/reset function (CH9141 PIN23)
- * @param fpPinSleep pointer to the platform gpio pin `Sleep` set/reset function (CH9141 PIN24)
- * @note Force `fpPinMode = NULL` to switch between AT and transparent modes with software approach
- * @note Force `fpPinReload = NULL` to use reload through serial interface (Not relatable in some cases, e.g. wrong
- * baudrate)
- * @note If `fpPinReload != NULL` then provide also `fpPinReset != NULL`
- * @note Force `fpPinSleep = NULL` if sleep mode won't be used
+ * @param interface pointer to the structure containing platform functions
+ * @note Force `interface.pinMode = NULL` to switch between AT and transparent modes with software approach
+ * @note Force `interface.pinReload = NULL` to use reload through serial interface (Not relatable in some cases,
+ * e.g. wrong baudrate)
+ * @note If `interface.pinReload != NULL` then provide also `interface.pinReset != NULL`
+ * @note Force `interface.pinSleep = NULL` if sleep mode won't be used
  */
-void CH9141_Link(ch9141_t *handle, ch9141_Receive_fp fpReceive, ch9141_Transmit_fp fpTransmit,
-                 ch9141_Pin_Delay_fp fpDelay, ch9141_Pin_Mode_fp fpPinMode, ch9141_Pin_Reset_fp fpPinReset,
-                 ch9141_Pin_Reload_fp fpPinReload, ch9141_Pin_Sleep_fp fpPinSleep);
+void CH9141_Link(ch9141_t *handle, ch9141_Interface_t *interface);
 
 /**
  * @brief Initializes/Reinitializes the target device
@@ -223,8 +217,8 @@ char *CH9141_SerialGet(ch9141_t *handle);
  * @param parity target device parity (none, odd or even)
  * @param timeout [ms]. Target device timeout in transparent transmission mode
  * @note Use this function with care, because it may break communication between MCU and BLE IC.
- * @note In case of communication break reinitialize BLE IC with `CH9141_Init` or configure new UART parameters on the
- * MCU side
+ * @note In case of communication break reinitialize BLE IC with `CH9141_Init` or configure new UART parameters on
+ * the MCU side
  */
 void CH9141_SerialSet(ch9141_t *handle, uint32_t baudRate, uint8_t dataBit, uint8_t stopBit,
                       ch9141_SerialParity_t parity, uint16_t timeout);
@@ -289,6 +283,7 @@ void CH9141_ChipNameSet(ch9141_t *handle, char const *nameSet);
  * @brief Changes device low energy mode
  * @param handle pointer to the target device handle
  * @param funcState enable or disable low energy mode
+ * @note Use only if `interface.pinSleep` is provided
  */
 void CH9141_SleepSwitch(ch9141_t *handle, ch9141_FuncState_t funcState);
 
