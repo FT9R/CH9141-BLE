@@ -187,9 +187,11 @@ typedef struct ch9141_s
  * @param fpPinReset pointer to the platform gpio pin `Reset` set/reset function (CH9141 PIN16)
  * @param fpPinReload pointer to the platform gpio pin `Reload` set/reset function (CH9141 PIN23)
  * @param fpPinSleep pointer to the platform gpio pin `Sleep` set/reset function (CH9141 PIN24)
+ * @note Force `fpPinMode = NULL` to switch between AT and transparent modes with software approach
  * @note Force `fpPinReload = NULL` to use reload through serial interface (Not relatable in some cases, e.g. wrong
  * baudrate)
  * @note If `fpPinReload != NULL` then provide also `fpPinReset != NULL`
+ * @note Force `fpPinSleep = NULL` if sleep mode won't be used
  */
 void CH9141_Link(ch9141_t *handle, ch9141_Receive_fp fpReceive, ch9141_Transmit_fp fpTransmit,
                  ch9141_Pin_Delay_fp fpDelay, ch9141_Pin_Mode_fp fpPinMode, ch9141_Pin_Reset_fp fpPinReset,

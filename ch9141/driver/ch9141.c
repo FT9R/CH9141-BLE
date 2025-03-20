@@ -23,7 +23,7 @@ void CH9141_Link(ch9141_t *handle, ch9141_Receive_fp fpReceive, ch9141_Transmit_
     handle->state = CH9141_STATE_LINK;
 
     /* Check platform functions */
-    if (fpReceive == NULL || fpTransmit == NULL || fpDelay == NULL || fpPinSleep == NULL)
+    if (fpReceive == NULL || fpTransmit == NULL || fpDelay == NULL)
     {
         handle->error = CH9141_ERR_INTERFACE;
         return;
@@ -63,7 +63,8 @@ void CH9141_Init(ch9141_t *handle, bool factoryRestore)
     handle->state = CH9141_STATE_INIT;
 
     /* Exit from sleep mode */
-    handle->interface.pinSleep(CH9141_PIN_STATE_SET);
+    if (handle->interface.pinSleep != NULL)
+        handle->interface.pinSleep(CH9141_PIN_STATE_SET);
     handle->interface.delay(100);
 
     /* Restore factory settings if requested */
@@ -426,6 +427,13 @@ void CH9141_SleepSwitch(ch9141_t *handle, ch9141_FuncState_t funcState)
     /* Set operational state */
     handle->state = CH9141_STATE_SLEEP_SWITCH;
 
+    /* Check if it is supported by platform */
+    if (handle->interface.pinSleep == NULL)
+    {
+        handle->error = CH9141_ERR_INTERFACE;
+        return;
+    }
+
     switch (funcState)
     {
     case CH9141_FUNC_STATE_DISABLE:
@@ -440,6 +448,8 @@ void CH9141_SleepSwitch(ch9141_t *handle, ch9141_FuncState_t funcState)
         handle->error = CH9141_ERR_ARGUMENT;
         return;
     }
+
+    handle->interface.delay(100);
 
     /* Set operational state */
     handle->state = CH9141_STATE_IDLE;
@@ -873,6 +883,10 @@ uint16_t CH9141_VCCGet(ch9141_t *handle)
  */
 static void ModeSwitch(ch9141_t *handle, mode_t mode)
 {
+    char const *successResponseTemplate = "OK\r\n";
+    char response[10] = {0};
+    uint16_t responseLen = 0;
+
     if (handle == NULL)
         return;
 
@@ -880,6 +894,7 @@ static void ModeSwitch(ch9141_t *handle, mode_t mode)
     if (handle->error != CH9141_ERR_NONE)
         return;
 
+    handle->interface.delay(500); // Enter AT configuration cmd is sent when UART is free for 500mS
     switch (mode)
     {
     case MODE_AT:
@@ -890,10 +905,27 @@ static void ModeSwitch(ch9141_t *handle, mode_t mode)
         else
         {
             /* Software AT mode enter */
+            /* Send command */
             snprintf(handle->txBuf, sizeof(handle->txBuf), "AT...\r\n");
             if (handle->interface.transmit(handle->txBuf, strlen(handle->txBuf)) != CH9141_ERROR_STATUS_SUCCESS)
             {
                 handle->error = CH9141_ERR_SERIAL_TX;
+                return;
+            }
+
+            /* Get response */
+            /* Use separated buffer, because driver rx buffer is used outside to keep the original cmd response */
+            if (handle->interface.receive(response, sizeof(response), &responseLen) != CH9141_ERROR_STATUS_SUCCESS)
+            {
+                handle->error = CH9141_ERR_SERIAL_RX;
+                return;
+            }
+
+            /* Check response */
+            if (strncmp(response, successResponseTemplate, strlen(successResponseTemplate)) != 0)
+            {
+                /* Unexpected response message */
+                handle->error = CH9141_ERR_RESPONSE;
                 return;
             }
         }
@@ -905,10 +937,27 @@ static void ModeSwitch(ch9141_t *handle, mode_t mode)
         else
         {
             /* Software transparent mode enter */
+            /* Send command */
             snprintf(handle->txBuf, sizeof(handle->txBuf), "AT+EXIT\r\n");
             if (handle->interface.transmit(handle->txBuf, strlen(handle->txBuf)) != CH9141_ERROR_STATUS_SUCCESS)
             {
                 handle->error = CH9141_ERR_SERIAL_TX;
+                return;
+            }
+
+            /* Get response */
+            /* Use separated buffer, because driver rx buffer is used outside to keep the original cmd response */
+            if (handle->interface.receive(response, sizeof(response), &responseLen) != CH9141_ERROR_STATUS_SUCCESS)
+            {
+                handle->error = CH9141_ERR_SERIAL_RX;
+                return;
+            }
+
+            /* Check response */
+            if (strncmp(response, successResponseTemplate, strlen(successResponseTemplate)) != 0)
+            {
+                /* Unexpected response message */
+                handle->error = CH9141_ERR_RESPONSE;
                 return;
             }
         }
@@ -947,6 +996,7 @@ static void CMD_Get(ch9141_t *handle, char const *cmd)
     /* Retrieve response from the whole message */
     if (strtok(handle->rxBuf, "\r") == NULL)
     {
+        /* Unexpected response message - `\r` token not found */
         handle->error = CH9141_ERR_RESPONSE;
         return;
     }
@@ -962,8 +1012,13 @@ static void CMD_Get(ch9141_t *handle, char const *cmd)
  */
 static void CMD_Set(ch9141_t *handle, char const *cmd)
 {
+    char const *connectSuccessResponse = "LINK OK\r\n";
+    char const *successResponseTemplate = "OK\r\n";
     char const *errorResponseTemplate = "\r\nERR:";
     char *pResponse = handle->rxBuf;
+    char response[10] = {0};
+    uint16_t responseLen = 0;
+    uint8_t connectAttempt = 5;
 
     if (handle == NULL)
         return;
@@ -1001,6 +1056,14 @@ static void CMD_Set(ch9141_t *handle, char const *cmd)
         return;
     }
 
+    /* Seek for `OK` in response message */
+    if (strstr(handle->rxBuf, successResponseTemplate) == NULL)
+    {
+        /* Unexpected response message */
+        handle->error = CH9141_ERR_RESPONSE;
+        return;
+    }
+
     /* Check for error message in the buffer */
     if (strncmp(handle->rxBuf, errorResponseTemplate, strlen(errorResponseTemplate)) == 0)
     {
@@ -1019,7 +1082,37 @@ static void CMD_Set(ch9141_t *handle, char const *cmd)
         return;
     }
 
-    ModeSwitch(handle, MODE_TRANSPARENT);
+    /* Special case: if connect cmd is issued, check for "LINK OK" before enter transparent mode */
+    if (strncmp(cmd, "AT+CONN", strlen("AT+CONN")) == 0)
+    {
+        /* Check the connect status response */
+        while (connectAttempt)
+        {
+            /* Get response */
+            /* Use separated buffer, because driver rx buffer is used outside to keep the original cmd response */
+            if (handle->interface.receive(response, sizeof(response), &responseLen) == CH9141_ERROR_STATUS_SUCCESS)
+                break;
+            --connectAttempt;
+        }
+        if (!connectAttempt)
+        {
+            /* Run out of attempts to get the message from device */
+            handle->error = CH9141_ERR_SERIAL_RX;
+            return;
+        }
+
+        /* Check response */
+        if (strncmp(response, connectSuccessResponse, strlen(connectSuccessResponse)) != 0)
+        {
+            /* Unexpected response message */
+            handle->error = CH9141_ERR_RESPONSE;
+            return;
+        }
+    }
+
+    /* Back to transparent mode, except for reset cmd */
+    if (strncmp(cmd, "AT+RESET", strlen("AT+RESET")) != 0)
+        ModeSwitch(handle, MODE_TRANSPARENT);
 }
 
 /**
