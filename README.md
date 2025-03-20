@@ -55,6 +55,7 @@ CH9141_Init(&ble1, true);
 ```
 
 ## Examples
+* [Common demo](ch9141/demo/ch9141_demo.c)
 * [STM32](platform/STM32F405RGT6/Core/Src/main.c)
 
 ## TODO
