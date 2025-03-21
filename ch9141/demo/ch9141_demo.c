@@ -109,6 +109,23 @@ void CH9141_Demo(void)
     if (adc == UINT16_MAX)
         Error_Handler();
 
+    /* GPIO functions */
+    CH9141_GPIOInitSet(ble1, 0xFF);
+    if (CH9141_GPIOInitGet(ble1) != 0xFF)
+        Error_Handler();
+
+    CH9141_GPIOInitSet(ble1, 0x00);
+    if (CH9141_GPIOInitGet(ble1) != 0x00)
+        Error_Handler();
+
+    CH9141_GPIOEnSet(ble1, 0xFF);
+    if (CH9141_GPIOEnGet(ble1) != 0xFF)
+        Error_Handler();
+
+    CH9141_GPIOEnSet(ble1, 0x00);
+    if (CH9141_GPIOEnGet(ble1) != 0x00)
+        Error_Handler();
+
     while (CH9141_StatusGet(ble1) != CH9141_BLESTAT_CONNECTED)
     {
         if (ble1->error != CH9141_ERR_NONE)

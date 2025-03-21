@@ -9,7 +9,11 @@
 
 /* Custom data types */
 typedef enum ch9141_ErrorStatus_e { CH9141_ERROR_STATUS_SUCCESS = 10, CH9141_ERROR_STATUS_ERROR } ch9141_ErrorStatus_t;
-typedef enum ch9141_PinState_e { CH9141_PIN_STATE_RESET = 20, CH9141_PIN_STATE_SET } ch9141_PinState_t;
+typedef enum ch9141_PinState_e {
+    CH9141_PIN_STATE_UNDEFINED,
+    CH9141_PIN_STATE_RESET = 20,
+    CH9141_PIN_STATE_SET
+} ch9141_PinState_t;
 typedef enum ch9141_FuncState_e { CH9141_FUNC_STATE_DISABLE = 30, CH9141_FUNC_STATE_ENABLE } ch9141_FuncState_t;
 
 typedef enum ch9141_Error_e {
@@ -79,7 +83,13 @@ typedef enum ch9141_State_e {
     CH9141_STATE_MAC_LOCAL_SET,
     CH9141_STATE_MAC_REMOTE_GET,
     CH9141_STATE_VCC_GET,
-    CH9141_STATE_ADC_GET
+    CH9141_STATE_ADC_GET,
+    CH9141_STATE_GPIO_GET,
+    CH9141_STATE_GPIO_SET,
+    CH9141_STATE_GPIO_INIT_GET,
+    CH9141_STATE_GPIO_INIT_SET,
+    CH9141_STATE_GPIO_EN_GET,
+    CH9141_STATE_GPIO_EN_SET
 } ch9141_State_t;
 
 typedef enum ch9141_Power_e {
@@ -229,6 +239,7 @@ void CH9141_SerialSet(ch9141_t *handle, uint32_t baudRate, uint8_t dataBit, uint
  * @param handle pointer to the target device handle
  * @param mac BLE slave MAC address (format xx:xx:xx:xx:xx:xx) as a null-terminated string
  * @param password BLE slave password (6 digit) as a null-terminated string. Pass `NULL` if no password is required
+ * @note Check `handle.error == CH9141_ERR_NONE` after calling this function to ensure successful connection
  */
 void CH9141_Connect(ch9141_t *handle, char const *mac, char const *password);
 
@@ -386,3 +397,47 @@ uint16_t CH9141_VCCGet(ch9141_t *handle);
  * @return ADC value of the chip ADC pin or UINT16_MAX if no response received
  */
 uint16_t CH9141_ADCGet(ch9141_t *handle);
+
+/**
+ * @brief Gets GPIO pin level
+ * @param handle pointer to the target device handle
+ * @param pin pin number (1, 3, 4, 5, 6, 7)
+ * @return Current GPIO pin level
+ */
+ch9141_PinState_t CH9141_GPIOGet(ch9141_t *handle, uint8_t pin);
+
+/**
+ * @brief Sets GPIO pin level
+ * @param handle pointer to the target device handle
+ * @param pin pin number (0, 2, 4, 5, 6, 7)
+ * @param pinState new GPIO pin level
+ */
+void CH9141_GPIOSet(ch9141_t *handle, uint8_t pin, ch9141_PinState_t pinState);
+
+/**
+ * @brief Gets the default value of GPIO output in the configuration
+ * @param handle pointer to the target device handle
+ * @return Current default value of GPIO output in the configuration or UINT16_MAX if no response received
+ */
+uint16_t CH9141_GPIOInitGet(ch9141_t *handle);
+
+/**
+ * @brief Sets the default value of GPIO output in the configuration
+ * @param handle pointer to the target device handle
+ * @param configIO new default value of GPIO output in the configuration
+ */
+void CH9141_GPIOInitSet(ch9141_t *handle, uint8_t configIO);
+
+/**
+ * @brief Gets the GPIO enable config byte
+ * @param handle pointer to the target device handle
+ * @return Current GPIO enable config byte or UINT16_MAX if no response received
+ */
+uint16_t CH9141_GPIOEnGet(ch9141_t *handle);
+
+/**
+ * @brief Sets the GPIO enable config byte
+ * @param handle pointer to the target device handle
+ * @param configIO new GPIO enable config byte
+ */
+void CH9141_GPIOEnSet(ch9141_t *handle, uint8_t configIO);

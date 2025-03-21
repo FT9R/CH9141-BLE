@@ -887,6 +887,202 @@ uint16_t CH9141_ADCGet(ch9141_t *handle)
     return atoi(handle->rxBuf);
 }
 
+ch9141_PinState_t CH9141_GPIOGet(ch9141_t *handle, uint8_t pin)
+{
+    ch9141_PinState_t pinState;
+    char cmd[20] = {0};
+
+    if (handle == NULL)
+        return CH9141_PIN_STATE_UNDEFINED;
+
+    /* Check any existing errors */
+    if (handle->error != CH9141_ERR_NONE)
+        return CH9141_PIN_STATE_UNDEFINED;
+
+    /* Set operational state */
+    handle->state = CH9141_STATE_GPIO_GET;
+
+    /* Check pin number */
+    if ((pin == 0) || (pin == 2) || (pin > 7))
+    {
+        handle->error = CH9141_ERR_ARGUMENT;
+        return CH9141_PIN_STATE_UNDEFINED;
+    }
+
+    /* Prepare the command */
+    snprintf(cmd, sizeof(cmd), "AT+GPIO%i?", pin);
+
+    /* Request the parameter */
+    CMD_Get(handle, cmd);
+    if (handle->error != CH9141_ERR_NONE)
+        return CH9141_PIN_STATE_UNDEFINED;
+
+    /* Map response message with ch9141_PinState_t */
+    switch (atoi(handle->rxBuf))
+    {
+    case 0:
+        pinState = CH9141_PIN_STATE_RESET;
+        break;
+
+    case 1:
+        pinState = CH9141_PIN_STATE_SET;
+        break;
+
+    default:
+        pinState = CH9141_PIN_STATE_UNDEFINED;
+        break;
+    }
+
+    /* Set operational state */
+    handle->state = CH9141_STATE_IDLE;
+
+    return pinState;
+}
+
+void CH9141_GPIOSet(ch9141_t *handle, uint8_t pin, ch9141_PinState_t pinState)
+{
+    char cmd[20] = {0};
+
+    if (handle == NULL)
+        return;
+
+    /* Check any existing errors */
+    if (handle->error != CH9141_ERR_NONE)
+        return;
+
+    /* Set operational state */
+    handle->state = CH9141_STATE_GPIO_SET;
+
+    /* Check pin number */
+    if ((pin == 1) || (pin == 3) || (pin > 7))
+    {
+        handle->error = CH9141_ERR_ARGUMENT;
+        return;
+    }
+
+    /* Prepare the command */
+    switch (pinState)
+    {
+    case CH9141_PIN_STATE_RESET:
+        snprintf(cmd, sizeof(cmd), "AT+GPIO%i=0", pin);
+        break;
+
+    case CH9141_PIN_STATE_SET:
+        snprintf(cmd, sizeof(cmd), "AT+GPIO%i=1", pin);
+        break;
+
+    default:
+        handle->error = CH9141_ERR_ARGUMENT;
+        return;
+    }
+
+    /* Set the parameter */
+    CMD_Set(handle, cmd);
+    if (handle->error != CH9141_ERR_NONE)
+        return;
+
+    /* Set operational state */
+    handle->state = CH9141_STATE_IDLE;
+}
+
+uint16_t CH9141_GPIOInitGet(ch9141_t *handle)
+{
+    if (handle == NULL)
+        return UINT16_MAX;
+
+    /* Check any existing errors */
+    if (handle->error != CH9141_ERR_NONE)
+        return UINT16_MAX;
+
+    /* Set operational state */
+    handle->state = CH9141_STATE_GPIO_INIT_GET;
+
+    /* Request the parameter */
+    CMD_Get(handle, "AT+INITIO?");
+    if (handle->error != CH9141_ERR_NONE)
+        return UINT16_MAX;
+
+    /* Set operational state */
+    handle->state = CH9141_STATE_IDLE;
+
+    return (uint8_t) strtoul(handle->rxBuf, NULL, 16);
+}
+
+void CH9141_GPIOInitSet(ch9141_t *handle, uint8_t configIO)
+{
+    char cmd[20] = {0};
+
+    if (handle == NULL)
+        return;
+
+    /* Check any existing errors */
+    if (handle->error != CH9141_ERR_NONE)
+        return;
+
+    /* Set operational state */
+    handle->state = CH9141_STATE_GPIO_INIT_SET;
+
+    /* Prepare the command */
+    snprintf(cmd, sizeof(cmd), "AT+INITIO=%X", configIO);
+
+    /* Set the parameter */
+    CMD_Set(handle, cmd);
+    if (handle->error != CH9141_ERR_NONE)
+        return;
+
+    /* Set operational state */
+    handle->state = CH9141_STATE_IDLE;
+}
+
+uint16_t CH9141_GPIOEnGet(ch9141_t *handle)
+{
+    if (handle == NULL)
+        return UINT16_MAX;
+
+    /* Check any existing errors */
+    if (handle->error != CH9141_ERR_NONE)
+        return UINT16_MAX;
+
+    /* Set operational state */
+    handle->state = CH9141_STATE_GPIO_EN_GET;
+
+    /* Request the parameter */
+    CMD_Get(handle, "AT+IOEN?");
+    if (handle->error != CH9141_ERR_NONE)
+        return UINT16_MAX;
+
+    /* Set operational state */
+    handle->state = CH9141_STATE_IDLE;
+
+    return (uint8_t) strtoul(handle->rxBuf, NULL, 16);
+}
+
+void CH9141_GPIOEnSet(ch9141_t *handle, uint8_t configIO)
+{
+    char cmd[20] = {0};
+
+    if (handle == NULL)
+        return;
+
+    /* Check any existing errors */
+    if (handle->error != CH9141_ERR_NONE)
+        return;
+
+    /* Set operational state */
+    handle->state = CH9141_STATE_GPIO_EN_SET;
+
+    /* Prepare the command */
+    snprintf(cmd, sizeof(cmd), "AT+IOEN=%X", configIO);
+
+    /* Set the parameter */
+    CMD_Set(handle, cmd);
+    if (handle->error != CH9141_ERR_NONE)
+        return;
+
+    /* Set operational state */
+    handle->state = CH9141_STATE_IDLE;
+}
+
 /**
  * @section Private func definitions
  */
@@ -1033,7 +1229,7 @@ static void CMD_Set(ch9141_t *handle, char const *cmd)
     char *pResponse = handle->rxBuf;
     char response[10] = {0};
     uint16_t responseLen = 0;
-    uint8_t connectAttempt = 5;
+    uint8_t connectAttempt = 0;
 
     if (handle == NULL)
         return;
@@ -1101,13 +1297,12 @@ static void CMD_Set(ch9141_t *handle, char const *cmd)
     if (strncmp(cmd, "AT+CONN", strlen("AT+CONN")) == 0)
     {
         /* Check the connect status response */
-        while (connectAttempt)
+        for (connectAttempt = 5; connectAttempt; --connectAttempt)
         {
             /* Get response */
             /* Use separated buffer, because driver rx buffer is used outside to keep the original cmd response */
             if (handle->interface->receive(response, sizeof(response), &responseLen) == CH9141_ERROR_STATUS_SUCCESS)
                 break;
-            --connectAttempt;
         }
         if (!connectAttempt)
         {

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../../driver/ch9141.h"
+#include "ch9141.h"
 #include "usart.h"
 
 ch9141_ErrorStatus_t CH9141_UART4_Receive(char *pDataRx, uint16_t size, uint16_t *rxLen);

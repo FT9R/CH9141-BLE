@@ -60,7 +60,6 @@ CH9141_Init(&ble1, true);
 
 ## TODO
 1. Broadcast (advertising) mode with dependent functionality.
-2. GPIO.
-3. Full device information get/set.
+2. Full device information get/set.
 
 [Manufacturer link](https://www.wch-ic.com/products/CH9141.html)
