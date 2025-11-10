@@ -41,6 +41,11 @@ ch9141_ErrorStatus_t CH9141_UART_Transmit(void *handle, char const *pDataTx, uin
                : CH9141_ERROR_STATUS_ERROR;
 }
 
+void CH9141_Delay(uint32_t ms)
+{
+    HAL_Delay(ms);
+}
+
 void CH9141_Pin_Mode1(ch9141_PinState_t newState)
 {
     switch (newState)
@@ -107,11 +112,6 @@ void CH9141_Pin_Sleep1(ch9141_PinState_t newState)
     default:
         break;
     }
-}
-
-void CH9141_Delay(uint32_t ms)
-{
-    HAL_Delay(ms);
 }
 
 ErrorStatus CH9141_SetUp(ch9141_t *ble)
