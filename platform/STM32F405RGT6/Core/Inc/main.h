@@ -57,18 +57,24 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
-#define PWR_Pin GPIO_PIN_13
+#define BLE_RST_Pin GPIO_PIN_3
+#define BLE_RST_GPIO_Port GPIOC
+#define BLE_AT_Pin GPIO_PIN_2
+#define BLE_AT_GPIO_Port GPIOA
+#define BTN_Pin GPIO_PIN_2
+#define BTN_GPIO_Port GPIOB
+#define PWR_Pin GPIO_PIN_12
 #define PWR_GPIO_Port GPIOB
-#define BTN_Pin GPIO_PIN_8
-#define BTN_GPIO_Port GPIOC
-#define LEDR_Pin GPIO_PIN_9
+#define LEDR_Pin GPIO_PIN_8
 #define LEDR_GPIO_Port GPIOA
-#define LEDG_Pin GPIO_PIN_10
+#define LEDG_Pin GPIO_PIN_9
 #define LEDG_GPIO_Port GPIOA
-#define LEDB_Pin GPIO_PIN_11
+#define LEDB_Pin GPIO_PIN_10
 #define LEDB_GPIO_Port GPIOA
-#define BLE_AT_Pin GPIO_PIN_8
-#define BLE_AT_GPIO_Port GPIOB
+#define VIBRO_Pin GPIO_PIN_12
+#define VIBRO_GPIO_Port GPIOA
+#define BLE_RLD_Pin GPIO_PIN_8
+#define BLE_RLD_GPIO_Port GPIOB
 #define BLE_SLEEP_Pin GPIO_PIN_9
 #define BLE_SLEEP_GPIO_Port GPIOB
 
