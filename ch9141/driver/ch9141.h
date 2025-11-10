@@ -9,11 +9,13 @@
 
 /* Custom data types */
 typedef enum ch9141_ErrorStatus_e { CH9141_ERROR_STATUS_SUCCESS = 10, CH9141_ERROR_STATUS_ERROR } ch9141_ErrorStatus_t;
+
 typedef enum ch9141_PinState_e {
     CH9141_PIN_STATE_UNDEFINED,
     CH9141_PIN_STATE_RESET = 20,
     CH9141_PIN_STATE_SET
 } ch9141_PinState_t;
+
 typedef enum ch9141_FuncState_e { CH9141_FUNC_STATE_DISABLE = 30, CH9141_FUNC_STATE_ENABLE } ch9141_FuncState_t;
 
 typedef enum ch9141_Error_e {
@@ -57,7 +59,6 @@ typedef enum ch9141_SerialParity_e {
 typedef enum ch9141_State_e {
     CH9141_STATE_UNDEFINED,
     CH9141_STATE_IDLE,
-    CH9141_STATE_LINK,
     CH9141_STATE_INIT,
     CH9141_STATE_SERIAL_GET,
     CH9141_STATE_SERIAL_SET,
@@ -118,68 +119,48 @@ typedef enum ch9141_BLEStatus_e {
 /* Platform functions pointers */
 /**
  * @brief The one of UARTx receive function templates
+ * @param handle optional pointer to the UART handle
  * @param pDataRx pointer to the buffer where data will be saved
  * @param size number of bytes to read
  * @param rxLen pointer to variable to keep the number of bytes actually received
  * @return Status of the data transfer request operation
  */
-typedef ch9141_ErrorStatus_t (*ch9141_Receive_fp)(char *pDataRx, uint16_t size, uint16_t *rxLen);
+typedef ch9141_ErrorStatus_t (*ch9141_Receive_fp)(void *handle, char *pDataRx, uint16_t size, uint16_t *rxLen);
 
 /**
  * @brief The one of UARTx transmit function templates
+ * @param handle optional pointer to the UART handle
  * @param pDataTx pointer to the buffer from which data is being sent
  * @param size number of bytes to send
  * @return Status of the data transfer request operation
  */
-typedef ch9141_ErrorStatus_t (*ch9141_Transmit_fp)(char const *pDataTx, uint16_t size);
+typedef ch9141_ErrorStatus_t (*ch9141_Transmit_fp)(void *handle, char const *pDataTx, uint16_t size);
 
 /**
- * @brief Provides minimum delay (in milliseconds) based on incremented variable
- * @param ms: specifies the delay time length, in milliseconds
- * @note In the default implementation, timer with 1kHz freq is the source of time base.
- * It is used to generate interrupts at regular time intervals where uwTick is incremented.
- * `volatile uint32_t uwTick` has to be declared with user source file
+ * @brief Provides minimum delay
+ * @param ms specifies the delay time length, in milliseconds
  */
 typedef void (*ch9141_Pin_Delay_fp)(uint32_t ms);
 
 /**
- * @brief AT mode pin set/reset function template associated with the 1st device
- * @param newState new AT mode pin state
+ * @brief Alias for any pin set/reset function
+ * @param newState new pin state
  */
-typedef void (*ch9141_Pin_Mode_fp)(ch9141_PinState_t newState);
-
-/**
- * @brief Reset pin set/reset function template associated with the 1st device
- * @param newState new Reset pin state
- */
-typedef void (*ch9141_Pin_Reset_fp)(ch9141_PinState_t newState);
-
-/**
- * @brief Reload pin set/reset function template associated with the 1st device
- * @param newState new Reload pin state
- */
-typedef void (*ch9141_Pin_Reload_fp)(ch9141_PinState_t newState);
-
-/**
- * @brief Sleep pin set/reset function template associated with the 1st device
- * @param newState new Sleep pin state
- */
-typedef void (*ch9141_Pin_Sleep_fp)(ch9141_PinState_t newState);
-
-typedef struct
-{
-    ch9141_Receive_fp receive; // Pointer to the platform serial interface receive function
-    ch9141_Transmit_fp transmit; // Pointer to the platform serial interface transmit function
-    ch9141_Pin_Delay_fp delay; // Pointer to the platform `Delay` function
-    ch9141_Pin_Mode_fp pinMode; // Pointer to the platform gpio pin `AT mode` set/reset function (CH9141 PIN6)
-    ch9141_Pin_Reset_fp pinReset; // Pointer to the platform gpio pin `Reset` set/reset function (CH9141 PIN16)
-    ch9141_Pin_Reload_fp pinReload; // Pointer to the platform gpio pin `Reload` set/reset function (CH9141 PIN23)
-    ch9141_Pin_Sleep_fp pinSleep; // Pointer to the platform gpio pin `Sleep` set/reset function (CH9141 PIN24)
-} ch9141_Interface_t;
+typedef void (*ch9141_Pin_fp)(ch9141_PinState_t newState);
 
 /* Device handle */
-typedef struct ch9141_s
-{
+typedef struct ch9141_s {
+    struct {
+        ch9141_Receive_fp receive; // Pointer to the platform serial interface receive function
+        ch9141_Transmit_fp transmit; // Pointer to the platform serial interface transmit function
+        ch9141_Pin_Delay_fp delay; // Pointer to the platform `Delay` function
+        ch9141_Pin_fp pinMode; // Pointer to the platform gpio pin `AT mode` set/reset function (CH9141 PIN6)
+        ch9141_Pin_fp pinReset; // Pointer to the platform gpio pin `Reset` set/reset function (CH9141 PIN16)
+        ch9141_Pin_fp pinReload; // Pointer to the platform gpio pin `Reload` set/reset function (CH9141 PIN23)
+        ch9141_Pin_fp pinSleep; // Pointer to the platform gpio pin `Sleep` set/reset function (CH9141 PIN24)
+        void *handle; // Optional pointer to the UART handle
+    } interface;
+
     char rxBuf[50];
     char txBuf[50];
     uint16_t rxLen; // Indicates number of data available in reception buffer
@@ -187,28 +168,13 @@ typedef struct ch9141_s
     ch9141_State_t state; // Indicates current state of BLE IC
     ch9141_Error_t error; // Driver error codes
     ch9141_AT_Error_t errorAT; // Device error codes provided by manufacturer
-    ch9141_Interface_t *interface; // Pointer to the platform functions structure
 } ch9141_t;
-
-/**
- * @brief Links user defined platform functions to the target device
- * @param handle pointer to the target device handle
- * @param interface pointer to the structure containing platform functions
- * @note Force `interface.pinMode = NULL` to switch between AT and transparent modes with software approach
- * @note Force `interface.pinReload = NULL` to use reload through serial interface (Not relatable in some cases,
- * e.g. wrong baudrate)
- * @note If `interface.pinReload != NULL` then provide also `interface.pinReset != NULL`
- * @note Force `interface.pinSleep = NULL` if sleep mode won't be used
- */
-void CH9141_Link(ch9141_t *handle, ch9141_Interface_t *interface);
 
 /**
  * @brief Initializes/Reinitializes the target device
  * @param handle pointer to the target device handle
- * @param factoryRestore restore factory settings or not
  * @note In case of communication break between MCU and BLE IC, reinitialization is only possible if `pinReset` and
- * `pinReload` interface functions are provided. It is because UART parameters between devices dont match.
- * @note Before reinitialization dont forget to force `handle.error = CH9141_ERR_NONE`
+ * `pinReload` interface functions are provided. It is because UART parameters between devices do not match.
  */
 void CH9141_Init(ch9141_t *handle, bool factoryRestore);
 
@@ -292,7 +258,7 @@ char *CH9141_ChipNameGet(ch9141_t *handle);
 void CH9141_ChipNameSet(ch9141_t *handle, char const *nameSet);
 
 /**
- * @brief Changes device low energy mode
+ * @brief Used to put the device into low energy mode
  * @param handle pointer to the target device handle
  * @param funcState enable or disable low energy mode
  * @note Use only if `interface.pinSleep` is provided
@@ -351,7 +317,7 @@ char *CH9141_PasswordGet(ch9141_t *handle);
 /**
  * @brief Sets device slave password
  * @param handle pointer to the target device handle
- * @param passwordSet device slave password as a null-terminated string
+ * @param passwordSet device slave password (6 numeric characters) as a null-terminated string
  * @param funcState enable or disable password check upon connection process
  */
 void CH9141_PasswordSet(ch9141_t *handle, char const *passwordSet, ch9141_FuncState_t funcState);
@@ -387,14 +353,14 @@ char *CH9141_MACRemoteGet(ch9141_t *handle);
 /**
  * @brief Gets supply voltage of the chip
  * @param handle pointer to the target device handle
- * @return Supply voltage of the chip [mV] or UINT16_MAX if no response received
+ * @return Supply voltage of the chip [mV] or `UINT16_MAX` if no response received
  */
 uint16_t CH9141_VCCGet(ch9141_t *handle);
 
 /**
  * @brief Gets ADC value(0-4095) of the chip ADC pin (CH9141 PIN7)
  * @param handle pointer to the target device handle
- * @return ADC value of the chip ADC pin or UINT16_MAX if no response received
+ * @return ADC value of the chip ADC pin or `UINT16_MAX` if no response received
  */
 uint16_t CH9141_ADCGet(ch9141_t *handle);
 
@@ -402,6 +368,7 @@ uint16_t CH9141_ADCGet(ch9141_t *handle);
  * @brief Gets GPIO pin level
  * @param handle pointer to the target device handle
  * @param pin pin number (1, 3, 4, 5, 6, 7)
+ * @note If pin is in output mode, this command will reconfigure it to input mode
  * @return Current GPIO pin level
  */
 ch9141_PinState_t CH9141_GPIOGet(ch9141_t *handle, uint8_t pin);
@@ -411,27 +378,28 @@ ch9141_PinState_t CH9141_GPIOGet(ch9141_t *handle, uint8_t pin);
  * @param handle pointer to the target device handle
  * @param pin pin number (0, 2, 4, 5, 6, 7)
  * @param pinState new GPIO pin level
+ * @note If pin is in input mode, this command will reconfigure it to output mode
  */
 void CH9141_GPIOSet(ch9141_t *handle, uint8_t pin, ch9141_PinState_t pinState);
 
 /**
  * @brief Gets the default value of GPIO output in the configuration
  * @param handle pointer to the target device handle
- * @return Current default value of GPIO output in the configuration or UINT16_MAX if no response received
+ * @return Current default value of GPIO output (byte bitmask) or `UINT16_MAX` if no response received
  */
 uint16_t CH9141_GPIOInitGet(ch9141_t *handle);
 
 /**
  * @brief Sets the default value of GPIO output in the configuration
  * @param handle pointer to the target device handle
- * @param configIO new default value of GPIO output in the configuration
+ * @param configIO new default value of GPIO output (byte bitmask)
  */
 void CH9141_GPIOInitSet(ch9141_t *handle, uint8_t configIO);
 
 /**
  * @brief Gets the GPIO enable config byte
  * @param handle pointer to the target device handle
- * @return Current GPIO enable config byte or UINT16_MAX if no response received
+ * @return Current GPIO enable config byte or `UINT16_MAX` if no response received
  */
 uint16_t CH9141_GPIOEnGet(ch9141_t *handle);
 

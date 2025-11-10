@@ -1,23 +1,19 @@
 #include "ch9141_demo.h"
-
-static ch9141_t *ble1 = &(ch9141_t) {0};
+static ch9141_t *ble1 = &(ch9141_t) {.interface = {.delay = CH9141_Delay,
+                                                   .pinMode = CH9141_Pin_Mode1,
+                                                   .pinReload = NULL,
+                                                   .pinReset = NULL,
+                                                   .pinSleep = CH9141_Pin_Sleep1,
+                                                   .handle = &huart4,
+                                                   .receive = CH9141_UART_Receive,
+                                                   .transmit = CH9141_UART_Transmit}};
 static char paramSet[50] = {0};
 static char bleResponse[50] = {0};
 static uint16_t vcc;
 static uint16_t adc;
-static ch9141_Interface_t *interface = &(ch9141_Interface_t) {.delay = CH9141_Delay,
-                                                              .pinMode = CH9141_Pin_Mode1,
-                                                              .pinReload = CH9141_Pin_Reload1,
-                                                              .pinReset = CH9141_Pin_Reset1,
-                                                              .pinSleep = CH9141_Pin_Sleep1,
-                                                              .receive = CH9141_UART4_Receive,
-                                                              .transmit = CH9141_UART4_Transmit};
 
 void CH9141_Demo(void)
 {
-    CH9141_Link(ble1, interface);
-    if (ble1->error != CH9141_ERR_NONE)
-        Error_Handler();
     CH9141_Init(ble1, true);
     if (ble1->error != CH9141_ERR_NONE)
         Error_Handler();
@@ -25,7 +21,7 @@ void CH9141_Demo(void)
     /* Actually, MCU's UART has baudrate == 115200, so setting BLE IC's baudrate to 9600
      * will break communications between MCU and BLE IC. And it is OK, because here we will try to reinitialize BLE IC.
      */
-    if (ble1->interface->pinReload != NULL)
+    if (ble1->interface.pinReload != NULL)
     {
         strcpy(paramSet, "9600,8,1,0,50");
         CH9141_SerialSet(ble1, 9600, 8, 1, CH9141_SERIAL_PARITY_NONE, 50); // OK
@@ -127,10 +123,8 @@ void CH9141_Demo(void)
         Error_Handler();
 
     while (CH9141_StatusGet(ble1) != CH9141_BLESTAT_CONNECTED)
-    {
         if (ble1->error != CH9141_ERR_NONE)
             Error_Handler();
-    }
     strncpy(bleResponse, CH9141_MACRemoteGet(ble1), ble1->responseLen);
 
     // CH9141_Disconnect(ble1);

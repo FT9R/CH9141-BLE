@@ -49,6 +49,7 @@
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
+
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -90,6 +91,8 @@ int main(void)
     MX_UART4_Init();
     /* USER CODE BEGIN 2 */
     LEDG_ON;
+    HAL_Delay(500);
+    PWR_ON;
     CH9141_Demo();
     LEDG_OFF;
     /* USER CODE END 2 */
@@ -98,32 +101,38 @@ int main(void)
     /* USER CODE BEGIN WHILE */
     while (1)
     {
-        char BLE_Msg[4];
+        static char msg[50];
 
-        HAL_UART_Receive_IT(&huart4, (uint8_t *) BLE_Msg, sizeof(BLE_Msg));
-        if (memcmp(BLE_Msg, "LEDR", 4) == 0)
+        HAL_UARTEx_ReceiveToIdle_IT(&huart4, (uint8_t *) msg, sizeof(msg));
+        if (memcmp(msg, "LEDR", 4) == 0)
         {
             LEDR_ON, LEDG_OFF, LEDB_OFF;
             HAL_UART_Transmit_IT(&huart4, "OK Red", 6);
-            memset(BLE_Msg, '\0', sizeof(BLE_Msg));
+            memset(msg, '\0', sizeof(msg));
         }
-        else if (memcmp(BLE_Msg, "LEDG", 4) == 0)
+        else if (memcmp(msg, "LEDG", 4) == 0)
         {
             LEDR_OFF, LEDG_ON, LEDB_OFF;
             HAL_UART_Transmit_IT(&huart4, "OK Green", 8);
-            memset(BLE_Msg, '\0', sizeof(BLE_Msg));
+            memset(msg, '\0', sizeof(msg));
         }
-        else if (memcmp(BLE_Msg, "LEDB", 4) == 0)
+        else if (memcmp(msg, "LEDB", 4) == 0)
         {
             LEDR_OFF, LEDG_OFF, LEDB_ON;
             HAL_UART_Transmit_IT(&huart4, "OK Blue", 7);
-            memset(BLE_Msg, '\0', sizeof(BLE_Msg));
+            memset(msg, '\0', sizeof(msg));
         }
-        else if (memcmp(BLE_Msg, "DISA", 4) == 0)
+        else if (memcmp(msg, "DISA", 4) == 0)
         {
             LEDR_OFF, LEDG_OFF, LEDB_OFF;
             HAL_UART_Transmit_IT(&huart4, "OK Disable", 10);
-            memset(BLE_Msg, '\0', sizeof(BLE_Msg));
+            memset(msg, '\0', sizeof(msg));
+        }
+        else if (memcmp(msg, "POWF", 4) == 0)
+        {
+            HAL_UART_Transmit_IT(&huart4, "OK Power Off", 10);
+            HAL_Delay(3000);
+            PWR_OFF;
         }
 
         if (BTN_CHECK == GPIO_PIN_RESET)
@@ -161,9 +170,7 @@ void SystemClock_Config(void)
     RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
     RCC_OscInitStruct.PLL.PLLQ = 4;
     if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
-    {
         Error_Handler();
-    }
 
     /** Initializes the CPU, AHB and APB buses clocks
      */
@@ -174,9 +181,7 @@ void SystemClock_Config(void)
     RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
 
     if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_5) != HAL_OK)
-    {
         Error_Handler();
-    }
 }
 
 /* USER CODE BEGIN 4 */
@@ -198,7 +203,6 @@ void Error_Handler(void)
     while (1) {}
     /* USER CODE END Error_Handler_Debug */
 }
-
 #ifdef USE_FULL_ASSERT
 /**
  * @brief  Reports the name of the source file and the source line number

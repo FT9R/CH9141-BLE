@@ -1146,13 +1146,13 @@
     <group>
         <name>ch9141</name>
         <file>
-            <name>$PROJ_DIR$\..\..\..\..\..\..\..\Desktop\ble\CH9141-BLE\ch9141\driver\ch9141.c</name>
+            <name>$PROJ_DIR$\..\..\..\ch9141\driver\ch9141.c</name>
         </file>
         <file>
-            <name>$PROJ_DIR$\..\..\..\..\..\..\..\Desktop\ble\CH9141-BLE\ch9141\demo\ch9141_demo.c</name>
+            <name>$PROJ_DIR$\..\..\..\ch9141\demo\ch9141_demo.c</name>
         </file>
         <file>
-            <name>$PROJ_DIR$\..\..\..\..\..\..\..\Desktop\ble\CH9141-BLE\ch9141\ifc\stm32\ch9141_ifc.c</name>
+            <name>$PROJ_DIR$\..\..\..\ch9141\ifc\stm32\ch9141_ifc.c</name>
         </file>
     </group>
     <group>

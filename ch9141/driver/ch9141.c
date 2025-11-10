@@ -1,4 +1,5 @@
 #include "ch9141.h"
+#include <stddef.h>
 
 typedef enum { MODE_AT, MODE_TRANSPARENT } mode_t;
 
@@ -8,56 +9,49 @@ static void CMD_Set(ch9141_t *handle, char const *cmd);
 static void Reset(ch9141_t *handle);
 static void Reload(ch9141_t *handle);
 
-void CH9141_Link(ch9141_t *handle, ch9141_Interface_t *interface)
-{
-    if (handle == NULL)
-        return;
-
-    /* Check any existing errors */
-    if (handle->error != CH9141_ERR_NONE)
-        return;
-
-    /* Set operational state */
-    handle->state = CH9141_STATE_LINK;
-
-    /* Check platform functions */
-    if (interface->receive == NULL || interface->transmit == NULL || interface->delay == NULL)
-    {
-        handle->error = CH9141_ERR_INTERFACE;
-        return;
-    }
-    if ((interface->pinReload != NULL) && (interface->pinReset == NULL))
-    {
-        handle->error = CH9141_ERR_INTERFACE;
-        return;
-    }
-
-    /* Clear all interface fields */
-    memset(&handle->interface, 0, sizeof(handle->interface));
-
-    /* Link platform functions to the device */
-    handle->interface = interface;
-
-    /* Set operational state */
-    handle->state = CH9141_STATE_IDLE;
-}
-
 void CH9141_Init(ch9141_t *handle, bool factoryRestore)
 {
     if (handle == NULL)
         return;
 
-    /* Check any existing errors */
-    if (handle->error != CH9141_ERR_NONE)
-        return;
+    /* Reset device handle, except for interface functions */
+    memset(&handle->rxBuf, 0, sizeof(ch9141_t) - offsetof(ch9141_t, rxBuf));
 
     /* Set operational state */
     handle->state = CH9141_STATE_INIT;
 
+    /* Check platform functions */
+    if (handle->interface.receive == NULL || handle->interface.transmit == NULL || handle->interface.delay == NULL)
+    {
+        handle->error = CH9141_ERR_INTERFACE;
+        return;
+    }
+    if ((handle->interface.pinReload != NULL) && (handle->interface.pinReset == NULL))
+    {
+        handle->error = CH9141_ERR_INTERFACE;
+        return; // `interface.pinReset` must be provided
+    }
+
     /* Exit from sleep mode */
-    if (handle->interface->pinSleep != NULL)
-        handle->interface->pinSleep(CH9141_PIN_STATE_SET);
-    handle->interface->delay(100);
+    if (handle->interface.pinSleep != NULL)
+        handle->interface.pinSleep(CH9141_PIN_STATE_SET);
+    handle->interface.delay(1000);
+
+    /* Set default pin states */
+    if (handle->interface.pinMode != NULL)
+        handle->interface.pinMode(CH9141_PIN_STATE_SET);
+    if (handle->interface.pinReset != NULL)
+        handle->interface.pinReset(CH9141_PIN_STATE_SET);
+    if (handle->interface.pinReload != NULL)
+        handle->interface.pinReload(CH9141_PIN_STATE_SET);
+
+    /* Reset if device is not responsive */
+    CMD_Get(handle, "AT+EXIT");
+    if ((handle->error != CH9141_ERR_NONE) || strcmp(handle->rxBuf, "OK") != 0)
+    {
+        handle->error = CH9141_ERR_NONE;
+        Reset(handle);
+    }
 
     /* Restore factory settings if requested */
     if (factoryRestore)
@@ -420,7 +414,7 @@ void CH9141_SleepSwitch(ch9141_t *handle, ch9141_FuncState_t funcState)
     handle->state = CH9141_STATE_SLEEP_SWITCH;
 
     /* Check if it is supported by platform */
-    if (handle->interface->pinSleep == NULL)
+    if (handle->interface.pinSleep == NULL)
     {
         handle->error = CH9141_ERR_INTERFACE;
         return;
@@ -429,11 +423,11 @@ void CH9141_SleepSwitch(ch9141_t *handle, ch9141_FuncState_t funcState)
     switch (funcState)
     {
     case CH9141_FUNC_STATE_DISABLE:
-        handle->interface->pinSleep(CH9141_PIN_STATE_SET);
+        handle->interface.pinSleep(CH9141_PIN_STATE_SET);
         break;
 
     case CH9141_FUNC_STATE_ENABLE:
-        handle->interface->pinSleep(CH9141_PIN_STATE_RESET);
+        handle->interface.pinSleep(CH9141_PIN_STATE_RESET);
         break;
 
     default:
@@ -441,7 +435,7 @@ void CH9141_SleepSwitch(ch9141_t *handle, ch9141_FuncState_t funcState)
         return;
     }
 
-    handle->interface->delay(100);
+    handle->interface.delay(100);
 
     /* Set operational state */
     handle->state = CH9141_STATE_IDLE;
@@ -693,6 +687,14 @@ void CH9141_PasswordSet(ch9141_t *handle, char const *passwordSet, ch9141_FuncSt
     {
         handle->error = CH9141_ERR_ARGUMENT;
         return;
+    }
+    for (int i = 0; i < 6; i++)
+    {
+        if (!isdigit((unsigned char) passwordSet[i]))
+        {
+            handle->error = CH9141_ERR_ARGUMENT;
+            return;
+        }
     }
 
     /* Prepare the command */
@@ -1023,7 +1025,7 @@ void CH9141_GPIOInitSet(ch9141_t *handle, uint8_t configIO)
     handle->state = CH9141_STATE_GPIO_INIT_SET;
 
     /* Prepare the command */
-    snprintf(cmd, sizeof(cmd), "AT+INITIO=%X", configIO);
+    snprintf(cmd, sizeof(cmd), "AT+INITIO=%02X", configIO);
 
     /* Set the parameter */
     CMD_Set(handle, cmd);
@@ -1072,7 +1074,7 @@ void CH9141_GPIOEnSet(ch9141_t *handle, uint8_t configIO)
     handle->state = CH9141_STATE_GPIO_EN_SET;
 
     /* Prepare the command */
-    snprintf(cmd, sizeof(cmd), "AT+IOEN=%X", configIO);
+    snprintf(cmd, sizeof(cmd), "AT+IOEN=%02X", configIO);
 
     /* Set the parameter */
     CMD_Set(handle, cmd);
@@ -1101,24 +1103,21 @@ static void ModeSwitch(ch9141_t *handle, mode_t mode)
     if (handle == NULL)
         return;
 
-    /* Check any existing errors */
-    if (handle->error != CH9141_ERR_NONE)
-        return;
-
-    handle->interface->delay(500); // Enter AT configuration cmd is sent when UART is free for 500mS
     switch (mode)
     {
     case MODE_AT:
         handle->errorAT = CH9141_AT_ERR_NONE;
-        if (handle->interface->pinMode != NULL)
+        if (handle->interface.pinMode != NULL)
             /* Hardware AT mode enter */
-            handle->interface->pinMode(CH9141_PIN_STATE_RESET);
+            handle->interface.pinMode(CH9141_PIN_STATE_RESET);
         else
         {
             /* Software AT mode enter */
             /* Send command */
+            handle->interface.delay(500); // Enter AT configuration cmd is sent when UART is free for 500mS
             snprintf(handle->txBuf, sizeof(handle->txBuf), "AT...\r\n");
-            if (handle->interface->transmit(handle->txBuf, strlen(handle->txBuf)) != CH9141_ERROR_STATUS_SUCCESS)
+            if (handle->interface.transmit(handle->interface.handle, handle->txBuf, strlen(handle->txBuf)) !=
+                CH9141_ERROR_STATUS_SUCCESS)
             {
                 handle->error = CH9141_ERR_SERIAL_TX;
                 return;
@@ -1126,7 +1125,8 @@ static void ModeSwitch(ch9141_t *handle, mode_t mode)
 
             /* Get response */
             /* Use separated buffer, because driver rx buffer is used outside to keep the original cmd response */
-            if (handle->interface->receive(response, sizeof(response), &responseLen) != CH9141_ERROR_STATUS_SUCCESS)
+            if (handle->interface.receive(handle->interface.handle, response, sizeof(response), &responseLen) !=
+                CH9141_ERROR_STATUS_SUCCESS)
             {
                 handle->error = CH9141_ERR_SERIAL_RX;
                 return;
@@ -1141,16 +1141,18 @@ static void ModeSwitch(ch9141_t *handle, mode_t mode)
             }
         }
         break;
+
     case MODE_TRANSPARENT:
-        if (handle->interface->pinMode != NULL)
+        if (handle->interface.pinMode != NULL)
             /* Hardware transparent mode enter */
-            handle->interface->pinMode(CH9141_PIN_STATE_SET);
+            handle->interface.pinMode(CH9141_PIN_STATE_SET);
         else
         {
             /* Software transparent mode enter */
             /* Send command */
             snprintf(handle->txBuf, sizeof(handle->txBuf), "AT+EXIT\r\n");
-            if (handle->interface->transmit(handle->txBuf, strlen(handle->txBuf)) != CH9141_ERROR_STATUS_SUCCESS)
+            if (handle->interface.transmit(handle->interface.handle, handle->txBuf, strlen(handle->txBuf)) !=
+                CH9141_ERROR_STATUS_SUCCESS)
             {
                 handle->error = CH9141_ERR_SERIAL_TX;
                 return;
@@ -1158,7 +1160,8 @@ static void ModeSwitch(ch9141_t *handle, mode_t mode)
 
             /* Get response */
             /* Use separated buffer, because driver rx buffer is used outside to keep the original cmd response */
-            if (handle->interface->receive(response, sizeof(response), &responseLen) != CH9141_ERROR_STATUS_SUCCESS)
+            if (handle->interface.receive(handle->interface.handle, response, sizeof(response), &responseLen) !=
+                CH9141_ERROR_STATUS_SUCCESS)
             {
                 handle->error = CH9141_ERR_SERIAL_RX;
                 return;
@@ -1177,7 +1180,7 @@ static void ModeSwitch(ch9141_t *handle, mode_t mode)
     default:
         break;
     }
-    handle->interface->delay(10);
+    handle->interface.delay(10);
 }
 
 /**
@@ -1189,15 +1192,12 @@ static void CMD_Get(ch9141_t *handle, char const *cmd)
 {
     if (handle == NULL)
         return;
+
     if (cmd == NULL)
     {
         handle->error = CH9141_ERR_ARGUMENT;
         return;
     }
-
-    /* Check any existing errors */
-    if (handle->error != CH9141_ERR_NONE)
-        return;
 
     /* Send the request */
     CMD_Set(handle, cmd);
@@ -1233,15 +1233,12 @@ static void CMD_Set(ch9141_t *handle, char const *cmd)
 
     if (handle == NULL)
         return;
+
     if (cmd == NULL)
     {
         handle->error = CH9141_ERR_ARGUMENT;
         return;
     }
-
-    /* Check any existing errors */
-    if (handle->error != CH9141_ERR_NONE)
-        return;
 
     ModeSwitch(handle, MODE_AT);
     if (handle->error != CH9141_ERR_NONE)
@@ -1254,16 +1251,20 @@ static void CMD_Set(ch9141_t *handle, char const *cmd)
     snprintf(handle->txBuf, sizeof(handle->txBuf), "%s\r\n", cmd);
 
     /* Send AT command */
-    if (handle->interface->transmit(handle->txBuf, strlen(handle->txBuf)) != CH9141_ERROR_STATUS_SUCCESS)
+    if (handle->interface.transmit(handle->interface.handle, handle->txBuf, strlen(handle->txBuf)) !=
+        CH9141_ERROR_STATUS_SUCCESS)
     {
         handle->error = CH9141_ERR_SERIAL_TX;
+        ModeSwitch(handle, MODE_TRANSPARENT);
         return;
     }
 
     /* Get response */
-    if (handle->interface->receive(handle->rxBuf, sizeof(handle->rxBuf), &handle->rxLen) != CH9141_ERROR_STATUS_SUCCESS)
+    if (handle->interface.receive(handle->interface.handle, handle->rxBuf, sizeof(handle->rxBuf), &handle->rxLen) !=
+        CH9141_ERROR_STATUS_SUCCESS)
     {
         handle->error = CH9141_ERR_SERIAL_RX;
+        ModeSwitch(handle, MODE_TRANSPARENT);
         return;
     }
 
@@ -1272,6 +1273,7 @@ static void CMD_Set(ch9141_t *handle, char const *cmd)
     {
         /* Unexpected response message */
         handle->error = CH9141_ERR_RESPONSE;
+        ModeSwitch(handle, MODE_TRANSPARENT);
         return;
     }
 
@@ -1284,12 +1286,14 @@ static void CMD_Set(ch9141_t *handle, char const *cmd)
             {
                 /* Can't find any digit */
                 handle->error = CH9141_ERR_RESPONSE;
+                ModeSwitch(handle, MODE_TRANSPARENT);
                 return;
             }
 
         /* Convert msg->string->integer and fill the field within handle */
         handle->error = CH9141_ERR_AT;
         handle->errorAT = (ch9141_AT_Error_t) atoi(strtok(pResponse, "\r"));
+        ModeSwitch(handle, MODE_TRANSPARENT);
         return;
     }
 
@@ -1301,13 +1305,15 @@ static void CMD_Set(ch9141_t *handle, char const *cmd)
         {
             /* Get response */
             /* Use separated buffer, because driver rx buffer is used outside to keep the original cmd response */
-            if (handle->interface->receive(response, sizeof(response), &responseLen) == CH9141_ERROR_STATUS_SUCCESS)
+            if (handle->interface.receive(handle->interface.handle, response, sizeof(response), &responseLen) ==
+                CH9141_ERROR_STATUS_SUCCESS)
                 break;
         }
         if (!connectAttempt)
         {
             /* Run out of attempts to get the message from device */
             handle->error = CH9141_ERR_SERIAL_RX;
+            ModeSwitch(handle, MODE_TRANSPARENT);
             return;
         }
 
@@ -1316,6 +1322,7 @@ static void CMD_Set(ch9141_t *handle, char const *cmd)
         {
             /* Unexpected response message */
             handle->error = CH9141_ERR_RESPONSE;
+            ModeSwitch(handle, MODE_TRANSPARENT);
             return;
         }
     }
@@ -1326,7 +1333,7 @@ static void CMD_Set(ch9141_t *handle, char const *cmd)
 }
 
 /**
- * @brief Internal function used to reset the device after any settting command
+ * @brief Internal function used to reset the device after any setting command
  * @param handle pointer to the device handle
  */
 static void Reset(ch9141_t *handle)
@@ -1334,11 +1341,7 @@ static void Reset(ch9141_t *handle)
     if (handle == NULL)
         return;
 
-    /* Check any existing errors */
-    if (handle->error != CH9141_ERR_NONE)
-        return;
-
-    if (handle->interface->pinReset == NULL)
+    if (handle->interface.pinReset == NULL)
     {
         /* Set the parameter */
         CMD_Set(handle, "AT+RESET");
@@ -1347,12 +1350,12 @@ static void Reset(ch9141_t *handle)
     }
     else
     {
-        handle->interface->pinReset(CH9141_PIN_STATE_RESET);
-        handle->interface->delay(10);
-        handle->interface->pinReset(CH9141_PIN_STATE_SET);
+        handle->interface.pinReset(CH9141_PIN_STATE_RESET);
+        handle->interface.delay(10);
+        handle->interface.pinReset(CH9141_PIN_STATE_SET);
     }
 
-    handle->interface->delay(300);
+    handle->interface.delay(300);
 }
 
 /**
@@ -1369,11 +1372,7 @@ static void Reload(ch9141_t *handle)
     if (handle == NULL)
         return;
 
-    /* Check any existing errors */
-    if (handle->error != CH9141_ERR_NONE)
-        return;
-
-    if (handle->interface->pinReload == NULL)
+    if (handle->interface.pinReload == NULL)
     {
         /* Set the parameter */
         CMD_Set(handle, "AT+RELOAD");
@@ -1382,19 +1381,19 @@ static void Reload(ch9141_t *handle)
     }
     else
     {
-        if (handle->interface->pinReset == NULL)
+        if (handle->interface.pinReset == NULL)
         {
             handle->error = CH9141_ERR_INTERFACE;
             return;
         }
 
-        handle->interface->pinReload(CH9141_PIN_STATE_RESET);
+        handle->interface.pinReload(CH9141_PIN_STATE_RESET);
         Reset(handle);
         if (handle->error != CH9141_ERR_NONE)
             return;
 
-        handle->interface->delay(2500);
-        handle->interface->pinReload(CH9141_PIN_STATE_SET);
+        handle->interface.delay(2500);
+        handle->interface.pinReload(CH9141_PIN_STATE_SET);
     }
 
     /* Reset device to take effect */
