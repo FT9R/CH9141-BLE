@@ -120,7 +120,7 @@ ErrorStatus CH9141_SetUp(ch9141_t *ble)
     const char *chipName = "RTS";
     const uint8_t attempts = 5;
     char bleResponse[50] = {0};
-    ErrorStatus cmpResult;
+    ErrorStatus cmpResult = SUCCESS;
 
     if (ble == NULL)
         return ERROR;
