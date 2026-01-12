@@ -93,7 +93,9 @@ int main(void)
     LEDG_ON;
     HAL_Delay(500);
     PWR_ON;
-    CH9141_Demo();
+    // CH9141_Demo();
+    ch9141_t ble;
+    CH9141_SetUp(&ble);
     LEDG_OFF;
     /* USER CODE END 2 */
 

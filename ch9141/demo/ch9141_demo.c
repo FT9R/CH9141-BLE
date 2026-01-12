@@ -1,8 +1,8 @@
 #include "ch9141_demo.h"
 static ch9141_t *ble1 = &(ch9141_t) {.interface = {.delay = CH9141_Delay,
                                                    .pinMode = CH9141_Pin_Mode1,
-                                                   .pinReload = NULL,
-                                                   .pinReset = NULL,
+                                                   .pinReload = CH9141_Pin_Reload1,
+                                                   .pinReset = CH9141_Pin_Reset1,
                                                    .pinSleep = CH9141_Pin_Sleep1,
                                                    .handle = &huart4,
                                                    .receive = CH9141_UART_Receive,

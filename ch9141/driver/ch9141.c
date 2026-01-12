@@ -1338,6 +1338,9 @@ static void CMD_Set(ch9141_t *handle, char const *cmd)
  */
 static void Reset(ch9141_t *handle)
 {
+    char helloMsg[30] = {0};
+    uint16_t helloLen = 0;
+
     if (handle == NULL)
         return;
 
@@ -1355,6 +1358,8 @@ static void Reset(ch9141_t *handle)
         handle->interface.pinReset(CH9141_PIN_STATE_SET);
     }
 
+    /* Get potential hello message */
+    handle->interface.receive(handle->interface.handle, helloMsg, sizeof(helloMsg), &helloLen);
     handle->interface.delay(300);
 }
 
@@ -1369,6 +1374,9 @@ static void Reset(ch9141_t *handle)
  */
 static void Reload(ch9141_t *handle)
 {
+    char helloMsg[30] = {0};
+    uint16_t helloLen = 0;
+
     if (handle == NULL)
         return;
 
@@ -1391,13 +1399,11 @@ static void Reload(ch9141_t *handle)
         Reset(handle);
         if (handle->error != CH9141_ERR_NONE)
             return;
-
         handle->interface.delay(2500);
         handle->interface.pinReload(CH9141_PIN_STATE_SET);
-    }
 
-    /* Reset device to take effect */
-    Reset(handle);
-    if (handle->error != CH9141_ERR_NONE)
-        return;
+        /* Get potential hello message */
+        handle->interface.receive(handle->interface.handle, helloMsg, sizeof(helloMsg), &helloLen);
+        handle->interface.delay(300);
+    }
 }
