@@ -1,13 +1,18 @@
 #include "ch9141.h"
 #include <stddef.h>
 
-typedef enum { MODE_AT, MODE_TRANSPARENT } mode_t;
+typedef enum { MODE_UNDEFINED, MODE_AT, MODE_TRANSPARENT } mode_t;
 
 static void ModeSwitch(ch9141_t *handle, mode_t mode);
 static void CMD_Get(ch9141_t *handle, char const *cmd);
 static void CMD_Set(ch9141_t *handle, char const *cmd);
 static void Reset(ch9141_t *handle);
 static void Reload(ch9141_t *handle);
+static bool Device_Check(ch9141_t *handle);
+static bool ModePin_Check(ch9141_t *handle);
+
+static bool softwareModeForce = false; // Use `AT.../AT+EXIT` instead of AT mode pin
+static mode_t modeForce = MODE_UNDEFINED;
 
 void CH9141_Init(ch9141_t *handle, bool factoryRestore)
 {
@@ -45,13 +50,11 @@ void CH9141_Init(ch9141_t *handle, bool factoryRestore)
     if (handle->interface.pinReload != NULL)
         handle->interface.pinReload(CH9141_PIN_STATE_SET);
 
-    /* Reset if device is not responsive */
-    CMD_Get(handle, "AT+EXIT");
-    if ((handle->error != CH9141_ERR_NONE) || strcmp(handle->rxBuf, "OK") != 0)
-    {
-        handle->error = CH9141_ERR_NONE;
-        Reset(handle);
-    }
+    /* Basic device check */
+    if (!Device_Check(handle))
+        return; // Device not found or not responsive
+    if (!ModePin_Check(handle))
+        return; // Device found but mode pin is not working
 
     /* Restore factory settings if requested */
     if (factoryRestore)
@@ -1103,11 +1106,13 @@ static void ModeSwitch(ch9141_t *handle, mode_t mode)
     if (handle == NULL)
         return;
 
+    if (modeForce != MODE_UNDEFINED)
+        mode = modeForce;
     switch (mode)
     {
     case MODE_AT:
         handle->errorAT = CH9141_AT_ERR_NONE;
-        if (handle->interface.pinMode != NULL)
+        if ((handle->interface.pinMode != NULL) && (!softwareModeForce))
             /* Hardware AT mode enter */
             handle->interface.pinMode(CH9141_PIN_STATE_RESET);
         else
@@ -1143,7 +1148,7 @@ static void ModeSwitch(ch9141_t *handle, mode_t mode)
         break;
 
     case MODE_TRANSPARENT:
-        if (handle->interface.pinMode != NULL)
+        if ((handle->interface.pinMode != NULL) && (!softwareModeForce))
             /* Hardware transparent mode enter */
             handle->interface.pinMode(CH9141_PIN_STATE_SET);
         else
@@ -1178,6 +1183,7 @@ static void ModeSwitch(ch9141_t *handle, mode_t mode)
         break;
 
     default:
+        handle->error = CH9141_ERR_ARGUMENT;
         break;
     }
     handle->interface.delay(10);
@@ -1361,6 +1367,7 @@ static void Reset(ch9141_t *handle)
     /* Get potential hello message */
     handle->interface.receive(handle->interface.handle, helloMsg, sizeof(helloMsg), &helloLen);
     handle->interface.delay(300);
+    ModeSwitch(handle, MODE_TRANSPARENT);
 }
 
 /**
@@ -1405,5 +1412,76 @@ static void Reload(ch9141_t *handle)
         /* Get potential hello message */
         handle->interface.receive(handle->interface.handle, helloMsg, sizeof(helloMsg), &helloLen);
         handle->interface.delay(300);
+        ModeSwitch(handle, MODE_TRANSPARENT);
     }
+}
+
+/**
+ * @brief Internal function used to check if the device is present and responsive by sending a simple AT command
+ * @param handle pointer to the device handle
+ * @return `true` if device is present and responsive
+ */
+static bool Device_Check(ch9141_t *handle)
+{
+    if (handle == NULL)
+        return false;
+
+    softwareModeForce = true;
+    for (uint8_t attempt = 0; attempt < 2; ++attempt)
+    {
+        CMD_Get(handle, "AT...");
+        if (handle->error == CH9141_ERR_NONE && strcmp(handle->rxBuf, "OK") == 0)
+        {
+            softwareModeForce = false;
+            return true;
+        }
+
+        handle->error = CH9141_ERR_NONE;
+        Reset(handle);
+    }
+
+    handle->error = CH9141_ERR_NO_DEVICE;
+    softwareModeForce = false;
+    return false;
+}
+
+/**
+ * @brief Internal function used to check if the device can switch between AT and transparent modes by sending a simple
+ * AT command in each mode
+ * @param handle pointer to the device handle
+ * @return `true` if device can switch modes properly
+ */
+static bool ModePin_Check(ch9141_t *handle)
+{
+    if (handle == NULL)
+        return false;
+
+    /* Mode pin control is not provided - no need to check */
+    if (!handle->interface.pinMode)
+        return true;
+
+    /* Check AT mode */
+    modeForce = MODE_AT;
+    CMD_Get(handle, "AT...");
+    if (handle->error != CH9141_ERR_NONE || strcmp(handle->rxBuf, "OK") != 0)
+    {
+        modeForce = MODE_UNDEFINED;
+        handle->error = CH9141_ERR_PIN_MODE;
+        return false;
+    }
+
+    /* Check Transparent mode */
+    /* Device should NOT response */
+    modeForce = MODE_TRANSPARENT;
+    CMD_Get(handle, "AT...");
+    if (handle->error == CH9141_ERR_NONE && strcmp(handle->rxBuf, "OK") == 0)
+    {
+        modeForce = MODE_UNDEFINED;
+        handle->error = CH9141_ERR_PIN_MODE;
+        return false;
+    }
+
+    modeForce = MODE_UNDEFINED;
+    handle->error = CH9141_ERR_NONE;
+    return true;
 }

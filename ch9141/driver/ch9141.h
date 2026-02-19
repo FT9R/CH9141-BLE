@@ -25,7 +25,9 @@ typedef enum ch9141_Error_e {
     CH9141_ERR_SERIAL_TX,
     CH9141_ERR_AT,
     CH9141_ERR_RESPONSE,
-    CH9141_ERR_INTERFACE
+    CH9141_ERR_INTERFACE,
+    CH9141_ERR_NO_DEVICE,
+    CH9141_ERR_PIN_MODE
 } ch9141_Error_t;
 
 typedef enum ch9141_AT_Error_e {
