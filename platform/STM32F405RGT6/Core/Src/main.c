@@ -44,7 +44,7 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-
+static ch9141_t ch9141;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -94,8 +94,8 @@ int main(void)
     HAL_Delay(500);
     PWR_ON;
     // CH9141_Demo();
-    ch9141_t ble;
-    CH9141_SetUp(&ble);
+    if (CH9141_SetUp(&ch9141) == ERROR)
+        Error_Handler();
     LEDG_OFF;
     /* USER CODE END 2 */
 
